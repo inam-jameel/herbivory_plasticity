@@ -50,7 +50,7 @@ if((nrow(sub)==14)==F)
 
 
 ##The loop begins - 
-for (i in 1:length(unique(GH$exp_ID))) 
+for (i in 1:length(unique(GH$exp_ID))) {
 	
 ##Subset the data for plantID i
 	target_ID<-unique(GH$exp_ID)[i]
@@ -183,17 +183,16 @@ Empty$Master_notes[target_row]<-sub$Master_notes[13]
 	#First, assign a 0 if it never had flowers or siliques, otherwise assign a 1
 	ifelse((sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Flowered[target_row]<-1, Empty$Flowered[target_row]<-0)
 
+}
 
 
-
-#Subset reproductive data 
-#Repro<-subset(sub, status=="reproductive" & (Flower_number>=1 | Silique_number>=1)
-    
+#Subset reproductive data #also doesnot work
+Repro<-subset(sub, status=="reproductive" & (Flower_number>=1 | Silique_number>=1))
 
 
 #Date_flowering (really this is the date that a plant is first observed to be reproductive)
-#	if(nrow(Repro)>=1) {
-#	Empty$Date_flowering[target_row]<-Repro$date[1] }
+	if(nrow(Repro)>=1) {
+	Empty$Date_flowering[target_row]<-Repro$Ordinal_date[1] }
 	
 
 #Flower_color - note the nested ifelse statements - this is needed to assign a 1 for plants with pigmented flowers, a 0 to plants with white flowers, and an NA to plants that never flowered (or for which we never observed flowers) 
@@ -372,4 +371,4 @@ library(openxlsx)
 #Empty <- Empty[order(Empty $Datafile_position),]
 #row.names(Empty) <- 1:nrow(Empty)
 
-write.xlsx(Empty, "GHSummary2021", sheetName="Summary2021", col.names=TRUE, row.names=TRUE, keepNA=TRUE) 
+write.xlsx(Empty, "NPSummary2019.xlsx", sheetName="Summary2019", col.names=TRUE, row.names=TRUE, keepNA=TRUE) 
