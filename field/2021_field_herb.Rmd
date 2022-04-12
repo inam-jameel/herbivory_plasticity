@@ -1,0 +1,227 @@
+---
+title: "Field2021_herbivory"
+author: "Mohammad Inam Jameel"
+date: "9/15/2021"
+output: pdf_document
+---
+
+```{r setup environment, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+
+#libraries
+library(dplyr)
+library(ggplot2)
+library(nlme)
+library(lme4)
+packageVersion("lme4")
+library(tidyr)
+library(broom)
+library(car)
+library(MASS)
+library(emmeans)
+library(visreg)
+library(fitdistrplus)
+library(gamlss)
+library(zoib)
+library(rjags)
+
+setwd("~/Desktop/Anderson_data/Herb-plasticity/herb-plasticity/data/2021_herbivory/")
+```
+
+## Estess 2021
+
+```{r Estess 2021}
+Estess <- read.csv("Field2021_estess.csv")
+
+Estess$S_elev<-scale(Estess$elevation,center=TRUE, scale=TRUE)
+Estess$elev_km<-Estess$elevation/1000
+Estess$init_size<-scale(Estess$initial_size,center=TRUE, scale=TRUE)
+#change variables from characters to factors.
+Estess$genotype<-as.factor(Estess$Genotype)
+Estess$treatment<-as.factor(Estess$Treatment)
+Estess$block<-as.factor(Estess$block)
+
+#remove rows for plants that died before experiment
+Estess <- drop_na(Estess,survival) 
+
+```
+
+```{r Estess 2021}
+##### most recent completed census ####
+c_12<-subset(Estess, Census=="12")
+c_12P<-subset(c_12, treatment=="P")
+c_12C<-subset(c_12, treatment=="C")
+
+#survival
+mod_1<- glmer(survival~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_12, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_1,type="III")
+
+survived <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_1)
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#reproduction
+mod_2<- glmer(reproduction~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_12, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_2,type="III")
+
+reproduction <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_2)
+plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+```
+
+```{r Estess 2021}
+##### most recent completed damage ####
+c_10<-subset(Estess, Census=="10.1")
+c_10P<-subset(c_10, treatment=="P")
+c_10C<-subset(c_10, treatment=="C")
+c_10 <- drop_na(c_10,LAR) 
+
+
+#survival
+#mod_3<- glmer(survival~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_10, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+#Anova(mod_3,type="III")
+
+#survived <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_3)
+#plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#reproduction
+#mod_4<- glmer(reproduction~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_12, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+#Anova(mod_4,type="III")
+
+#reproduction <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_4)
+#plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#LAR
+c_10 <- drop_na(c_10,LAR) 
+plot(c_10$S_elev, c_10$LAR, xlab="elev", ylab="LAR")
+
+LAR = ggplot(c_10, aes(x= S_elev,y=LAR))+geom_point(size=5) +scale_x_continuous("LAR")+ scale_y_continuous("elevation")
+LAR + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="glm",size=1.6)
+LAR + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(), legend.position = "bottom")+ geom_smooth(method="glm",size=1.6
+                                                                                                      , formula=y~poly(x,2)) 
+
+#mod1 <- glmer.nb(LAR ~ treatment*S_elev+init_size + (1|block)+(1|population), data=c_10, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+summary(mod1)
+Anova(mod1,type="III")
+plot(mod1)
+visreg(mod1, overlay = TRUE, "S_elev", by="treatment", type="conditional", #scale = "response", 
+       xlab="Elev", ylab="LAR", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       #line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+
+LAR <-predictorEffect("S_elev",  partial.residuals=TRUE, mod1)
+plot(LAR, lwd=2,xlab="Elevation of origin", ylab="LAR", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+
+```
+
+## Gothic 2021
+
+```{r Gothic 2021}
+setwd("~/Desktop/Anderson_data/Herb-plasticity/herb-plasticity/data/2021_herbivory/")
+Gothic <- read.csv("Field2021_gothic.csv")
+
+Gothic$S_elev<-scale(Gothic$elevation,center=TRUE, scale=TRUE)
+Gothic$elev_km<-Gothic$elevation/1000
+Gothic$init_size<-scale(Gothic$initial_size,center=TRUE, scale=TRUE)
+#change variables from characters to factors.
+Gothic$genotype<-as.factor(Gothic$Genotype)
+Gothic$treatment<-as.factor(Gothic$Treatment)
+Gothic$block<-as.factor(Gothic$block)
+
+#remove rows for plants that died before experiment
+Gothic <- drop_na(Gothic,survival) 
+
+```
+
+```{r Gothic 2021}
+##### most recent completed census ####
+#c_15<-subset(Gothic, Census=="15")
+#c_15P<-subset(c_15, treatment=="P")
+#c_15C<-subset(c_15, treatment=="C")
+
+#survival
+mod_1<- glmer(survival~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_15, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_1,type="III")
+
+survived <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_1)
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#reproduction
+mod_2<- glmer(reproductive~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_15, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_2,type="III")
+
+reproduction <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_2)
+plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+```
+
+```{r Gothic 2021}
+##### most recent completed damage ####
+#c_9<-subset(Gothic, Census=="9")
+#c_9P<-subset(c_10, treatment=="P")
+#c_9C<-subset(c_10, treatment=="C")
+
+
+#survival
+#mod_3<- glmer(survival~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_9, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_3,type="III")
+
+survived <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_3)
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#reproduction
+#mod_4<- glmer(reproductive~S_elev*treatment+init_size+ (1|block)+(1|genotype), data = c_9, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_4,type="III")
+
+reproduction <-predictorEffect("S_elev",  partial.residuals=TRUE, mod_4)
+plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#LAR
+c_9 <- drop_na(c_9,LAR) 
+plot(c_9$S_elev, c_9$LAR, xlab="elev", ylab="LAR")
+
+#LAR = ggplot(c_10, aes(x= S_elev,y=LAR))+geom_point(size=5) +scale_x_continuous("LAR")+ scale_y_continuous("elevation")
+#LAR + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"),                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),                            panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="glm",size=1.6)
+#LAR + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), panel.grid.minor=element_blank(), legend.position = "bottom")+ geom_smooth(method="glm",size=1.6, formula=y~poly(x,2)) 
+
+#mod1 <- glmer.nb(LAR ~ treatment*S_elev+init_size + (1|block)+(1|population), data=c_9, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+
+summary(mod1)
+Anova(mod1,type="III")
+plot(mod1)
+visreg(mod1, overlay = TRUE, "S_elev", by="treatment", type="conditional", #scale = "response", 
+       xlab="Elev", ylab="LAR", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       #line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+
+LAR <-predictorEffect("S_elev",  partial.residuals=FALSE, mod1)
+plot(LAR, lwd=2,xlab="Elevation of origin", ylab="LAR", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+
+```
+
+```{r combining genotype data}
+
+
+
+schofield <- read.csv("Field2021_schofield.csv")
+s_data <- read.csv("schofield_plant_data.csv")
+
+schofield_a<- merge(schofield,s_data,by="plantID").
+
+
+
+```
