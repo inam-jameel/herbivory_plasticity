@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 Setting up the environment
-```{r}
+```{r, include = FALSE}
 #libraries
 library(dplyr)
 library(ggplot2)
@@ -64,13 +64,6 @@ RC_SLA<- lmer(SLA ~ treatment+mat_treat+elevation + S_init_size +(1|block),contr
 Anova(RC_SLA)
 plot (RC_SLA)
 
-visreg(RC_SLA, overlay = TRUE, "elevation", by="mat_treat", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-      # fill=list(col=grey(c(0.7,0.9))),
-       #line=list(col=grey(c(0,0.5))),
-       #points=list(cex=1.5,col=grey(c(0.2,0.8)))
-      ) 
-
 visreg(RC_SLA, overlay = TRUE, "elevation", by="treatment", type="conditional", scale = "response", 
        xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
@@ -80,6 +73,20 @@ visreg(RC_SLA, overlay = TRUE, "elevation", by="treatment", type="conditional", 
 
 ```
 
+### SLA
+```{r}
+RC_Tri<- lmer(avg_trichomes ~ treatment*mat_treat*elevation +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+Anova(RC_Tri)
+plot (RC_Tri)
+
+visreg(RC_Tri, overlay = FALSE, "elevation", by="mat_treat", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="Avg Trichomes", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+
+```
 
 
 ## Selection on Plasticity {.tabset}
@@ -145,4 +152,3 @@ plot(SLA_p1, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduced)", pch=
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
