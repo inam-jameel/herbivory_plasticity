@@ -1,0 +1,148 @@
+---
+title: "GH_2gen_2021"
+author: "Mohammad Inam Jameel"
+date: "4/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Setting up the environment
+```{r}
+#libraries
+library(dplyr)
+library(ggplot2)
+library(nlme)
+library(lme4)
+packageVersion("lme4")
+library(tidyr)
+library(broom)
+library(car)
+library(MASS)
+library(emmeans)
+library(visreg)
+library(fitdistrplus)
+library(gamlss)
+library(rjags)
+library(gamlss)
+library(effects)
+ 
+setwd("~/Desktop/Anderson_data/herbivory/data/greenhouse/")
+
+
+#read in data 
+gh2 <- read.csv("GHSummary2021.csv")
+#gh2 <- drop_na(gh2,LAR)
+gh2 $S_elev<-scale(gh2$elevation,center=TRUE, scale=TRUE)
+gh2$elev<-gh2$elevation/1000
+gh2 $S_init_size<-scale(gh2$ini_size,center=TRUE, scale=TRUE)
+
+##convert LAR from most recent exposure (LAR 13) to proportion
+  gh2$LAR_prop<- gh2$LAR13/100
+  hist(gh2$LAR13)
+  
+#Check that the conversion worked
+  hist(gh2$LAR_prop)
+  #head(gh2)  
+
+##Some of your variables are being read as characters not factors. Let's fix that
+gh2$genotype<-as.factor(gh2$genotype)
+gh2$treatment<-as.factor(gh2$treatment)
+gh2$block<-as.factor(gh2$block)
+gh2$mat_treat<-as.factor(gh2$mat_treat)
+gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
+
+```
+## Relative contributions {.tabset}
+
+### SLA
+```{r}
+RC_SLA<- lmer(SLA ~ treatment+mat_treat+elevation + S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+Anova(RC_SLA)
+plot (RC_SLA)
+
+visreg(RC_SLA, overlay = TRUE, "elevation", by="mat_treat", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+      # fill=list(col=grey(c(0.7,0.9))),
+       #line=list(col=grey(c(0,0.5))),
+       #points=list(cex=1.5,col=grey(c(0.2,0.8)))
+      ) 
+
+visreg(RC_SLA, overlay = TRUE, "elevation", by="treatment", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+
+```
+
+
+
+## Selection on Plasticity {.tabset}
+
+### SLA
+
+#am not running this code since i only needed to do it once
+```{r eval = FALSE, echo = FALSE}
+#to make the emmeans file
+modB<- lmer(SLA ~ genotype:mat_treat:treatment +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
+fam_means_linear<-as.data.frame(fam_avg_linear)
+write.csv(fam_means_linear,file="LSmeans_SLA.csv")
+
+#read in emmeans
+LSmeans_SLA <- read.csv("LSmeans_SLA.csv", stringsAsFactors=TRUE)
+
+#now we have lsmeans, but need to add corresponding elevation
+elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+elev <- unique(elev) #calls unique rows 
+LSmeans_SLA <- merge(LSmeans_SLA,elev,by="genotype") #merge the dataframes
+
+LSmeans_SLA$elev<-LSmeans_SLA$elevation/1000
+LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
+
+write.csv(LSmeans_SLA,file="LSmeans_SLA.csv")
+```
+
+```{r}
+
+#read in emmeans
+LSmeans_SLA <- read.csv("LSmeans_SLA.csv", stringsAsFactors=TRUE)
+
+modB<- lmer(emmean ~ elevation*treatment*mat_treat +(1|genotype) ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = LSmeans_SLA)
+Anova(modB)
+
+modB<- lm(emmean ~ elevation*treatment*mat_treat, data = LSmeans_SLA)
+Anova(modB)
+
+##use this
+visreg(modB,"elevation", by="treatment", overlay=TRUE, scale = "response", xlab="Source elevation", ylab="Specific leaf area", line=list(col="black"),partial=FALSE,points=list(cex=1.2, col="black"))
+
+visreg(modB, overlay = TRUE, "elevation", by="treatment", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+SLA_1<- lmer(SLA~elev*treatment*mat_treat+ (1|block)+(1|genotype), data = gh2)
+Anova(SLA_1,type="III")
+
+visreg(SLA_1, overlay = TRUE, "elev", by="treatment", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+SLA_p1 <-predictorEffect("elev",  partial.residuals=FALSE, SLA_1)
+
+plot(SLA_p1, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduced)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
