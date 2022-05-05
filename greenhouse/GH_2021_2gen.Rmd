@@ -10,8 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-Setting up the environment
+
 ```{r, include = FALSE}
+#Setting up the environment (not printed)
 #libraries
 library(dplyr)
 library(ggplot2)
@@ -43,12 +44,16 @@ gh2 $S_init_size<-scale(gh2$ini_size,center=TRUE, scale=TRUE)
 gh2$SLA100<-gh2$SLA*100
 
 
-##convert LAR from most recent exposure (LAR 13) to proportion
-  gh2$LAR_prop<- gh2$LAR13/100
+##convert LAR from census 3 (most damage) and census 13 (most recent) to proportion
+ gh2$LAR_prop3<- gh2$LAR3/100
+  hist(gh2$LAR3)  
+
+
+gh2$LAR_prop13<- gh2$LAR13/100
   hist(gh2$LAR13)
   
 #Check that the conversion worked
-  hist(gh2$LAR_prop)
+  hist(gh2$LAR_prop13)
   #head(gh2)  
 
 ##Some of your variables are being read as characters not factors. Let's fix that
@@ -61,9 +66,9 @@ gh2$trichomes <- gh2$avg_trichomes +0.001 #added to do gamma glmer
 ```
 ## Relative contributions {.tabset}
 
-### SLA individual 
+### SLA individual for full dataset
 ```{r}
-RC_SLA<- lmer(SLA100 ~ treatment+elev+mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+RC_SLA<- lmer(SLA100 ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
 Anova(RC_SLA)
 plot (RC_SLA)
 
@@ -73,23 +78,51 @@ visreg(RC_SLA, overlay = TRUE, "elev", by="treatment", type="conditional", scale
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
 
-visreg(RC_SLA, "elev", by="mat_treat",type="conditional", scale = "response", 
+visreg(RC_SLA,overlay = TRUE, "elev", by="mat_treat",type="conditional", scale = "response", 
        xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-      fill=list(col=grey(c(0.7,0.9))),
-      line=list(col=grey(c(0,0.5))),
+      #fill=list(col=grey(c(0.7,0.9))),
+      #line=list(col=grey(c(0,0.5))),
        #points=list(cex=1.5,col=grey(c(0.2,0.8)))
       )  
 
 
 ```
 
+
+```{r eval = FALSE, echo = FALSE} 
+#### SLA individual for Parents. Save for later?
+
+p_SLA <- subset(gh2, mat_treat == "Parent")
+
+parents_SLA<- lmer(SLA100 ~ treatment +(1|block) + (1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = p_SLA)
+Anova(parents_SLA)
+plot (parents_SLA)
+
+visreg(parents_SLA, overlay = TRUE, "genotype", by="treatment", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+library(rstatix)
+
+#descriptive and visual look at variable
+parents1 <- p_SLA %>% 
+  group_by(treatment) %>%
+  get_summary_stats(SLA100, type="mean_se")
+parents1
+
+```
+
+
 ### SLA family level
 
-#am not running this code since i only needed to do it once
 ```{r eval = FALSE, echo = FALSE}
+#not printed
+
 #to make the emmeans file
-modB<- lmer(SLA100 ~ genotype+mat_treat+treatment+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
-fam_avg_linear<-emmeans(modB, ~genotype+mat_treat+treatment)
+modB<- lmer(SLA100 ~ genotype*mat_treat*treatment+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
 fam_means_linear<-as.data.frame(fam_avg_linear)
 write.csv(fam_means_linear,file="LSmeans_SLA_2.csv")
 
@@ -105,17 +138,16 @@ LSmeans_SLA$elev<-LSmeans_SLA$elevation/1000
 #LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
 
 write.csv(LSmeans_SLA,file="LSmeans_SLA_2.csv")
-#read in emmeans
-LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
+
 ```
 
 ```{r}
-#RC_SLA_means<- lmer(emmean ~ elevation+treatment+mat_treat +(1|genotype), data = LSmeans_SLA) #issues with rescaling??
-#Anova(RC_SLA_means)
+#read in emmeans
+LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
 
-RC_SLA_means<- lm(emmean ~ elevation+treatment+mat_treat, data = LSmeans_SLA)
-Anova(modB)
-plot(modB)
+RC_SLA_means<- lm(emmean ~ elevation*treatment*mat_treat, data = LSmeans_SLA)
+Anova(RC_SLA_means)
+plot(RC_SLA_means)
 
 ##use this
 
@@ -134,23 +166,26 @@ visreg(RC_SLA_means, overlay = FALSE, "elevation", by="mat_treat", type="conditi
 
 ```
 
+
+
 ### Trichomes individual
+
 ```{r}
-RC_Tri<- glmer(trichomes ~ mat_treat*elev+treatment+S_init_size +(1|block),family = Gamma(link=log), data = gh2) 
+RC_Tri<- glmer(trichomes ~ mat_treat*elev*treatment+S_init_size +(1|block),family = Gamma(link=log), data = gh2) 
 #had errors but this seems to work when i specify link=log
 #singular fit
 
 Anova(RC_Tri) # elev is sig, sig interaction btw mat_treat and elev
 plot (RC_Tri)
 
-visreg(RC_Tri, "elev", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="Avg Trichomes", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
+visreg(RC_Tri, "elev", by="treatment",overlay = TRUE,type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="Trichome density", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
 
 visreg(RC_Tri, "elev", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="Avg Trichomes", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       xlab="Elevation (m)", ylab="Trichome density", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
@@ -158,13 +193,13 @@ visreg(RC_Tri, "elev", type="conditional", scale = "response",
 
 
 visreg(RC_Tri, "elev",  by="mat_treat", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="Avg Trichomes", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
+       xlab="Elevation (m)", ylab="Trichome density", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
 
 visreg(RC_Tri, "elev",  by="mat_treat", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="Avg Trichomes", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       xlab="Elevation (m)", ylab="ç", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
@@ -172,14 +207,15 @@ visreg(RC_Tri, "elev",  by="mat_treat", type="conditional", scale = "response",
 
 ```
 
-### trichomes family level
+### Trichomes family level
 
-#am not running this code since i only needed to do it once
 ```{r eval = FALSE, echo = FALSE}
+# not printed
 #to make the emmeans file
-modC<- glmer(trichomes ~ mat_treat*genotype+treatment +(1|block),family = Gamma(link=log), data = gh2) 
+# link log makes log output ( i think), changed to identity but have some warnings. needs the glmer control
+modC<- glmer(trichomes ~ mat_treat*genotype*treatment+(1|block),family = Gamma(link="identity"),  control=glmerControl(optimizer="bobyqa"), data = gh2) #s_initial size not sig, so not included
 Anova(modC)
-fam_avg_linear<-emmeans(modC, ~genotype+mat_treat*treatment)
+fam_avg_linear<-emmeans(modC, ~genotype:mat_treat:treatment)
 fam_means_linear<-as.data.frame(fam_avg_linear)
 write.csv(fam_means_linear,file="LSmeans_tri.csv")
 
@@ -194,35 +230,412 @@ LSmeans_tri <- merge(LSmeans_tri,elev,by="genotype") #merge the dataframes
 LSmeans_tri$elev<-LSmeans_tri$elevation/1000
 
 write.csv(LSmeans_tri,file="LSmeans_tri.csv")
-#read in emmeans
-LSmeans_tri <- read.csv("LSmeans_tri.csv", stringsAsFactors=TRUE)
-RC_tri_means<- lm(emmeans ~ mat_treat*elev+treatment, data = LSmeans_tri) 
 ```
 
 ```{r}
+LSmeans_tri <- read.csv("LSmeans_tri.csv", stringsAsFactors=TRUE)
 
-RC_tri_means<- glmer(emmeans ~ mat_treat*elev+treatment, family = Gamma(link=log), data = LSmeans_tri) 
-Anova(modC) #issues with rescaling??
-#Anova(RC_SLA_means)
+RC_tri_means<- glm(emmean ~ mat_treat*elev*treatment, data = LSmeans_tri) 
+Anova(RC_tri_means)
+plot(RC_tri_means)
 
 
 
 ##use this
 
-visreg(RC_SLA_means, overlay = TRUE, "elevation", by="treatment", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+visreg(RC_tri_means, overlay = TRUE, "elev", by="treatment", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="Trichome density", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
        points=list(cex=1.5,col=grey(c(0.2,0.8))))  
 
-visreg(RC_SLA_means, overlay = FALSE, "elevation", by="mat_treat", type="conditional", scale = "response", 
-       xlab="Elevation (m)", ylab="specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+visreg(RC_tri_means, overlay = FALSE, "elev", by="mat_treat", type="conditional", scale = "response", 
+       xlab="Elevation (m)", ylab="Trichome density", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        #fill=list(col=grey(c(0.7,0.9))),
        #line=list(col=grey(c(0,0.5))),
        #points=list(cex=1.5,col=grey(c(0.2,0.8)))
        ) 
 
-## Selection on Plasticity {.tabset}
+
+```
 
 
+## Plasticity overview {.tabset}
+
+### SLA
+
+```{r}
+#read in emmeans. using lsmeans because its easier to see the graph
+LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
+
+SLA <- lm(emmean ~ treatment*mat_treat, data = LSmeans_SLA)
+Anova (SLA)
+
+##use this
+
+visreg(SLA, overlay = TRUE, "mat_treat", by="treatment", type="conditional", scale = "response", 
+       xlab="Maternal environment", ylab="Specific leaf are", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+
+#plasticity figure
+ggplot(
+  #subset(
+    LSmeans_SLA,
+   # treatment == "Herbivorized"),
+  aes(x=treatment, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Specific Leaf Area") +
+  xlab("Treatment")
+
+#plasticity figure
+ggplot(
+  subset(
+    LSmeans_SLA,
+   treatment == "Herbivorized"),
+  aes(x=mat_treat, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Specific Leaf Area") +
+  xlab("Maternal enviornment")
+
+#plasticity figure
+ggplot(
+  subset(
+    LSmeans_SLA,
+   treatment == "Control"),
+  aes(x=mat_treat, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Specific Leaf Area") +
+  xlab("Maternal enviornment")
+
+
+```
+
+
+
+
+
+
+### Trichome Density
+
+```{r}
+#read in emmeans. using lsmeans because its easier to see the graph
+LSmeans_tri <- read.csv("LSmeans_tri.csv", stringsAsFactors=TRUE)
+
+TRI <- glm(emmean ~ treatment*mat_treat, data = LSmeans_tri)
+Anova (TRI)
+
+##use this
+
+visreg(TRI, overlay = TRUE, "mat_treat", by="treatment", type="conditional", scale = "response", 
+       xlab="Maternal environment", ylab="Trichome Density", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       line=list(col=grey(c(0,0.5))),
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+
+#plasticity figure
+ggplot(
+  #subset(
+    LSmeans_tri,
+   # treatment == "Herbivorized"),
+  aes(x=treatment, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Trichome Density") +
+  xlab("Treatment")
+
+#plasticity figure
+ggplot(
+  subset(
+    LSmeans_tri,
+   treatment == "Herbivorized"),
+  aes(x=mat_treat, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Trichome Density") +
+  xlab("Maternal enviornment")
+
+#plasticity figure
+ggplot(
+  subset(
+    LSmeans_tri,
+   treatment == "Control"),
+  aes(x=mat_treat, y=emmean, color = genotype)) + # Change fill to color
+  theme_classic(base_size = 22) + 
+  #geom_point() + 
+  stat_summary(fun=mean, position = "dodge") + 
+  #stat_summary(
+  #  geom="errorbar", 
+  #  fun.data= mean_cl_boot,
+  #  width = 0.1, size = 0.2, col = "grey57"
+  #  ) + 
+  # Lines by species using grouping
+  #scale_color_viridis(discrete = FALSE) +
+  #scale_fill_manual(values = cbp2)+
+  stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
+  ylab("Trichome Density") +
+  xlab("Maternal enviornment")
+
+
+```
+
+
+
+
+
+
+## Fitness models: Fitness ~ garden x treatment x elev {.tabset)
+
+# Probability of reproduction 
+
+Individual 
+```{r}
+mod_flower<- glmer(flowered~ elev*treatment*mat_treat+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_flower) # all seperate factors are sig, sig interaction btw mat_treat and elev
+plot (mod_flower) #plot is strange, not sure if ok fit
+
+
+flower <-predictorEffect("elev",  partial.residuals=TRUE, mod_flower)
+plot(flower, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
+          partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
+
+#no parents
+mod_pr1<- glmer(flowered~ elev*treatment*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr1)
+
+flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
+
+plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+
+
+```
+
+family level (not working)
+```{r eval = FALSE, echo = FALSE}
+# not printed
+#lsmeans for prob flowering #not working, is resulting in negative emmean values
+
+modB<- glmer(flowered~ genotype*mat_treat*treatment+ (1|block), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(modB,type="III")
+
+fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
+fam_means_linear<-as.data.frame(fam_avg_linear)
+
+write.csv(fam_means_linear,file="LSmeans_flowered.csv")
+LSmeans_flowered <- read.csv("LSmeans_flowered.csv", stringsAsFactors=TRUE)
+
+#now we have lsmeans, but need to add corresponding elevation
+elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+elev <- unique(elev) #calls unique rows 
+LSmeans_flowered <- merge(LSmeans_flowered,elev,by="genotype") #merge the dataframes
+
+LSmeans_flowered$elev<-LSmeans_flowered$elevation/1000
+
+write.csv(LSmeans_flowered,file="LSmeans_flw.csv")
+
+LSmeans_flowered <- read.csv("LSmeans_flw.csv", stringsAsFactors=TRUE)
+
+mod_pr<- glmer(emmean~ elev*mat_treat+treatment+ (1|genotype), data = LSmeans_flowered, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_pr,type="III") #not working, error for negative emmean values
+
+```
+
+
+# Probability of survival
+
+individual
+```{r}
+mod_surv<- glmer(survival~elev*treatment*mat_treat + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+Anova(mod_surv) #only treatment is sig
+plot(mod_surv)
+
+survived <-predictorEffect("elev",  partial.residuals=FALSE, mod_surv)
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
+          partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+```
+
+family level not working
+```{r eval = FALSE, echo = FALSE}
+# not printed
+#lsmeans for prob flowering #not working, is resulting in negative emmean values
+
+mod_s<- glmer(survival~genotype*treatment*mat_treat + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+Anova(mod_s,type="III")
+
+fam_avg_linear<-emmeans(mod_s, ~genotype:mat_treat:treatment)
+fam_means_linear<-as.data.frame(fam_avg_linear)
+
+write.csv(fam_means_linear,file="LSmeans_surv.csv")
+LSmeans_surv <- read.csv("LSmeans_surv.csv", stringsAsFactors=TRUE)
+
+#now we have lsmeans, but need to add corresponding elevation
+elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+elev <- unique(elev) #calls unique rows 
+LSmeans_surv <- merge(LSmeans_surv,elev,by="genotype") #merge the dataframes
+
+LSmeans_surv$elev<-LSmeans_surv$elevation/1000
+
+write.csv(LSmeans_surv,file="LSmeans_surv.csv")
+
+LSmeans_surv <- read.csv("LSmeans_surv.csv", stringsAsFactors=TRUE)
+
+#em_surv<- glmer(emmean~ elev*mat_treat+treatment+ (1|genotype), data = LSmeans_surv, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+#Anova(mod_pr,type="III") #not working, error for negative emmean values
+
+```
+
+
+# Fecundity 
+individual
+```{r}
+library(glmmTMB)
+
+hurdle <- glmmTMB (Mature_silique_number ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
+
+diagnose(hurdle)
+
+Anova(hurdle,type="III", component="zi")
+
+summary(hurdle) #zero inflated model is significant, but not sure if i am plotting it?
+
+
+fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle,component="zi")
+
+plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,25))
+
+```
+
+Family level
+```{r eval = FALSE, echo = FALSE}
+# not printed
+#calculated family-level means. To do so, for each relevant unit (genotype or maternal id), calculate the total number of individuals planted, the total number of individuals that reproduced, and then silique production amongst those that reproduced. From the family level data, you can calculate fitness as: (# of individuals that reproduced / # of individuals planted) * silique production amongst those that reproduced
+
+#to make the emmeans file
+
+reproduced <- subset(gh2,flowered == "1")
+reproduced <- subset(reproduced, Mature_silique_number!="0")
+
+
+modF<- lmer( Mature_silique_number ~ genotype*mat_treat*treatment +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = reproduced)
+fam_avg_linear<-emmeans(modF, ~genotype:mat_treat:treatment)
+fam_means_linear<-as.data.frame(fam_avg_linear, type = "response")
+summary(fam_avg_linear, type = "response")
+write.csv(fam_means_linear,file="LSmeans_fruit.csv")
+
+#read in emmeans
+LSmeans_fruit <- read.csv("LSmeans_fruit.csv", stringsAsFactors=TRUE)
+
+#now we have lsmeans, but need to add corresponding elevation
+elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+elev <- unique(elev) #calls unique rows 
+LSmeans_fruit <- merge(LSmeans_fruit,elev,by="genotype") #merge the dataframes
+
+LSmeans_fruit$elev<-LSmeans_fruit$elevation/1000
+#LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
+
+write.csv(LSmeans_fruit,file="LSmeans_fruit.csv")
+
+```
+
+
+
+## LAR {.tabset}
+
+individual 
+```{r}
+#have to curate the dataset to focus on herb treatment and remove NAs
+#LAR 3 has the most damage, LAR 13 is the most recent
+
+LAR_data <- subset(gh2, treatment == "Herbivorized")
+
+LAR_3 <- drop_na(LAR_data,LAR_prop3) #this removes the rows without LAR values
+LAR_3 <- dplyr::select(LAR_3, LAR_prop3, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
+
+gamlss_mod1<- gamlss (formula=LAR_prop3~elev*mat_treat+ S_init_size+ random(block)+random(genotype), family=BE, data= LAR_3)
+summary(gamlss_mod1)
+plot(gamlss_mod1)
+
+
+LAR_13 <- drop_na(LAR_data,LAR_prop13) #this removes the rows without LAR values
+LAR_13 <- dplyr::select(LAR_13, LAR_prop13, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
+
+gamlss_mod2<- gamlss (formula=LAR_prop13~elev*mat_treat+ random(block)+random(genotype), family=BEZI, data= LAR_13)
+summary(gamlss_mod2)
+plot(gamlss_mod2)
+
+visreg(gamlss_mod1, 'elev', by= "mat_treat", overlay = FALSE, type="conditional", 
+       #scale = "response", 
+       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8))),
+       points=list(cex=1.5,col=grey(c(0,0.8)))) 
+
+visreg(gamlss_mod2, 'elev', by= "mat_treat", overlay = FALSE, type="conditional", 
+       #scale = "response", 
+       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8))),
+       points=list(cex=1.5,col=grey(c(0,0.8)))) 
+
+
+``` 
 

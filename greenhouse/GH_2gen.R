@@ -96,7 +96,11 @@ plot(SLA_p1, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduced)", pch=
 
 
 #plasticity figure
-ggplot(LSmeans_SLA,aes(x=treatment, y=emmean, color = elevation)) + # Change fill to color
+ggplot(
+  #subset(
+    LSmeans_SLA,
+   # treatment == "Herbivorized"),
+  aes(x=treatment, y=emmean, color = elevation)) + # Change fill to color
   theme_classic(base_size = 22) + 
   #geom_point() + 
   stat_summary(fun=mean, position = "dodge") + 
@@ -109,7 +113,7 @@ ggplot(LSmeans_SLA,aes(x=treatment, y=emmean, color = elevation)) + # Change fil
   #scale_color_viridis(discrete = FALSE) +
   #scale_fill_manual(values = cbp2)+
   stat_summary(aes(group = genotype), geom = "line", size=1.5, fun = mean) +
-  ylab("Leaf Area Removed") +
+  ylab("SLA") +
   xlab("maternal trt")
 
 herb <- subset(gh2,mat_treat=="herb")
@@ -218,10 +222,8 @@ p_leafarea + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 #lsmeans for prob flowering, not working
 
-modB<- glmer(flowered~ genotype:mat_treat:treatment+ (1|block), data = gh2, control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), family=binomial)
-Anova(mod_pr,type="III")
-
-modB<- lmer(LAR ~ genotype*mat_treat+S_weight+time +(1|mat_exp_ID)+(1|batch),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = Feeding_trial)
+modB<- glmer(flowered~ genotype*mat_treat*treatment+ (1|block), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(modB,type="III")
 
 fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
 fam_means_linear<-as.data.frame(fam_avg_linear)
