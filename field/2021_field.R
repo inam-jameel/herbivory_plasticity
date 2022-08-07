@@ -63,12 +63,13 @@ data $garden_treat<-interaction(data $garden, data $treatment,sep = "_")
 #Anova(mod_1) 
 
 #no residuals, multiline
-survived <-predictorEffect("elev_km",  partial.residuals=FALSE, mod_1)
+survived <-predictorEffect("elev_km",  partial.residuals=FALSE, mod_surv)
 plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
+
 #residuals
-survived <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_1)
+survived <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_surv)
 plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
@@ -157,10 +158,10 @@ plot(pred_repro, lwd=2,xlab="Elevational transfer distance", ylab="Fitness (prob
      
      partial.residuals=list(smooth=FALSE, pch=19, col="black"))
 
-#model for seepeg lighting talk
+#model for RMBL talk
 visreg(mod_repro, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast", 
        scale = "response",
-       xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", partial=FALSE,
+       xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", partial=TRUE,
        fill=list(col="light grey"
                  #(c(0.99), alpha=0)
        ), band = FALSE,
@@ -182,6 +183,15 @@ plot(mod_surv1, lwd=2,xlab="Elevational transfer distance", ylab="Fitness (proba
      partial.residuals=list(smooth=TRUE, pch=19, col="black"))
 
 
+#model for RMBL talk
+visreg(mod_surv, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast", 
+       scale = "response",
+       xlab="Elevational transfer distance", ylab="Fitness (survival)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
 
 ### couldnt figure this out
 mod_surv<- glmer(survival~treatment+S_elev_dist +(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
@@ -216,8 +226,6 @@ visreg(mod, overlay = TRUE, "garden", by="treatment", type="conditional", scale 
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
        points=list(cex=1.5,col=grey(c(0,0.8))))  
-
-#Leaf area removed ~Elevation*maternal env+ Elevation2 *Maternal env + Scaled weight of insect +(1|batch)+(1|genotype/mat_exp_ID)
 
 
 #estess 
