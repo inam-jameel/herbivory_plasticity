@@ -462,8 +462,8 @@ Anova(mod_pr1)
 
 flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
 
-plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
-
+plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
 
 
 ```
