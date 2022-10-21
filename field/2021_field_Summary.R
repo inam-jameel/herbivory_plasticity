@@ -1,51 +1,51 @@
 
-setwd("~/Desktop/Anderson_data/herbivory/data/field/2021_herbivory")
+setwd("~/Desktop/Anderson_data/herbivory/data/field/2022_herbivory/census_files")
 getwd()
 
 library(writexl)
 
 #### summarizing estess 2021 field cohort in 2021 field season ####
 
-#### estess 2021 ####
-estess <- read.csv("Field2021_estess.csv")
+#### Gothic 2021 cohort ####
+g2021 <- read.csv("2021_gInam_03oct22.csv")
 
-sapply(estess,class)
+sapply(g2021,class)
 
-head(estess,20)
-tail(estess)
+head(g2021,20)
+tail(g2021)
 
-estess$Master_notes<-as.character(estess$Master_notes)
+g2021$Master_notes<-as.character(g2021$Master_notes)
 
-reproductive<-subset(estess, Phenology=="reproductive")
+reproductive<-subset(g2021, Reproductive=="1")
 head(reproductive,20)
 
 
 
 
 ##Empty data set that we will populate with summary data
-Empty <-read.csv("Field2021_estess_empty.csv", header=T)
+Empty <-read.csv("Field2022_gothic21_empty.csv", header=T)
 
 
 sapply(Empty,class)
 head(Empty,20)
 Empty $Master_notes<-as.character(Empty $Master_notes)
 Empty $survival<-as.numeric(Empty $survival)
-Empty $bolted<-as.numeric(Empty $bolted)
-Empty $flowered<-as.numeric(Empty $flowered)
+Empty $Bolted<-as.numeric(Empty $Bolted)
+Empty $Flowered<-as.numeric(Empty $Flowered)
 
 
 
 
 ##Do any plants have an incomplete number of censuses listed in the dataset?
 
-for (i in 1:length(unique(estess$PlantID))) {
+for (i in 1:length(unique(g2021$PlantID))) {
 
 #        ##Subset for each plant
-target_ID<-unique(estess $PlantID)[i]
-sub<-subset(estess, PlantID==target_ID)
+target_ID<-unique(g2021 $PlantID)[i]
+sub<-subset(g2021, PlantID==target_ID)
 
-#        ##If the subset has less than 12 rows (number of censuses), tell me the plant ID number
-if((nrow(sub)==12)==F)
+#        ##If the subset has less than 10 rows (number of censuses), tell me the plant ID number
+if((nrow(sub)==10)==F)
 { print(sub$PlantID[1]) }
 
 }
@@ -53,19 +53,19 @@ if((nrow(sub)==12)==F)
 
 
 ##The loop begins - 
-for (i in 1:length(unique(estess$PlantID))) {
+for (i in 1:length(unique(g2021$PlantID))) {
 	
 ##Subset the data for plantID i
-	target_ID<-unique(estess$PlantID)[i]
-	sub<-subset(estess, PlantID==target_ID)
+	target_ID<-unique(g2021$PlantID)[i]
+	sub<-subset(g2021, PlantID==target_ID)
 	
 	
 ##Identify the row number in Empty that corresponds to this ID number 
 	target_row<-as.numeric(rownames(Empty[which(Empty$PlantID==target_ID),]))
 	
 	
-#exp_survival - Census 12 was the last full census, alive=1 dead=0
-	ifelse((sub$Status[12]=="alive"), Empty$survival[target_row]<-1, Empty$survival[target_row]<-0)
+#exp_survival - Census 10 was the last full census, alive=1 dead=0
+	ifelse((sub$Status[10]=="alive"), Empty$survival[target_row]<-1, Empty$survival[target_row]<-0)
 		
 ## SKIP ####
 ##In some cases, plants initially marked as dead are later found alive - we need to adjust Overwinter_survival to equal 1 if plants were alive in the final census or if they had leaves counted during the damage census (note that we can only ask if there are >= 1 leaf if the element is not NA)
@@ -85,16 +85,15 @@ Empty$LAR_7[target_row]<-sub$LAR[7]
 Empty$LAR_8[target_row]<-sub$LAR[8] 
 Empty$LAR_9[target_row]<-sub$LAR[9] 
 Empty$LAR_10[target_row]<-sub$LAR[10] 
-Empty$LAR_11[target_row]<-sub$LAR[11] 
-Empty$LAR_12[target_row]<-sub$LAR[12]
+
 
 
 
 ## Master notes
-Empty$Master_notes[target_row]<-sub$Master_notes[12] 
+Empty$Master_notes[target_row]<-sub$Master_notes[10] 
 
 ## vegetative cover
-Empty$vegetative_cover[target_row]<-sub$X..Vegetative.cover[9] 
+Empty$vegetative_cover[target_row]<-sub$Vegetative_cover[9] 
 
 
 #Date_first_death_observed - only assigns a date of first death for individuals who are not alive at the end of the season - This code does account for the individuals who were listed as dead, then were found as alive, and later died	
@@ -175,14 +174,14 @@ Empty$vegetative_cover[target_row]<-sub$X..Vegetative.cover[9]
 #Bolted and Flowered, yes=1 no=0
 	#to exclude plants that were erroneously marked as bolting, Jill added a condition that a plant needed to be censused as reproductive at least two times
 
-	ifelse((sum(sub$Phenology=="reproductive", na.rm=T)>=2 | sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Bolted[target_row]<-1, Empty$Bolted[target_row]<-0)
+	ifelse((sum(sub$Reproductive=="1", na.rm=T)>=2 | sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Bolted[target_row]<-1, Empty$Bolted[target_row]<-0)
 	
 	#First, assign a 0 if it never had flowers or siliques, otherwise assign a 1
-	ifelse((sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Flowered[target_row]<-1, Empty$flowered[target_row]<-0)
+	ifelse((sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Flowered[target_row]<-1, Empty$Flowered[target_row]<-0)
 
 
 #Subset reproductive data #also doesnot work
-Repro<-subset(sub, Phenology=="reproductive" & (Flower_number>=1 | Silique_number>=1))
+Repro<-subset(sub, Reproductive=="1" & (Flower_number>=1 | Silique_number>=1))
 
 
 #Date_flowering (really this is the date that a plant is first observed to be reproductive)
@@ -356,16 +355,24 @@ Repro<-subset(sub, Phenology=="reproductive" & (Flower_number>=1 | Silique_numbe
 #} ##Closes entire loop
 
 
-E12000 <-subset(Empty, PlantID=="E12000")
-E12000
-E12233 <-subset(Empty, PlantID=="E12233")
-
+G15001 <-subset(Empty, PlantID=="G15001")
+G15001
+G15246 <-subset(Empty, PlantID=="G15246")
+G15246
 library(openxlsx)
 
 #Empty <- Empty[order(Empty $Datafile_position),]
 #row.names(Empty) <- 1:nrow(Empty)
 
-write.xlsx(Empty, "2021_estess_summary.xlsx", sheetName="Summary2019", colnames=TRUE, rownames=TRUE, keepNA=TRUE) 
+write.xlsx(Empty, "2022_gothic21_summary.xlsx", sheetName="Summary2022", colnames=TRUE, rownames=TRUE, keepNA=TRUE) 
+
+
+
+
+
+
+
+
 
 #### gothic 2021 ####
 
@@ -543,7 +550,7 @@ for (i in 1:length(unique(gothic$PlantID))) {
   ifelse((sum(sub$Phenology=="reproductive", na.rm=T)>=2 | sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$bolted[target_row]<-1, Empty$bolted[target_row]<-0)
   
   #First, assign a 0 if it never had flowers or siliques, otherwise assign a 1
-  ifelse((sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$flowered[target_row]<-1, Empty$flowered[target_row]<-0)
+  ifelse((sum(sub$Flower_number, na.rm=T)>=1 | sum(sub$Silique_number, na.rm=T)>=1), Empty$Flowered[target_row]<-1, Empty$Flowered[target_row]<-0)
   
   
   #Subset reproductive data #also doesnot work
