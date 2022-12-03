@@ -85,14 +85,14 @@ logistic_model<-glmer(Reproduction_2022 ~ S_initdiam + elev_km* Herbivore* Treat
 
 ```{r}
 #Fruit Length
-#fecund<- glmer(Mature_length_siliques_2022 ~  S_initdiam +elev_km* Herbivore* Treatment+ (1|block) +(1|population), data= filter(grasshopper, Reproduction_2022 == 1),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+fecund<- glmer(Mature_length_siliques_2022 ~  S_initdiam +elev_km* Herbivore* Treatment+ (1|block) +(1|population), data= filter(grasshopper, Reproduction_2022 == 1),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 Anova(fecund,type="III")
 
 fecundmod <-predictorEffect("elev_km",  partial.residuals=TRUE, fecund)
   plot(fecundmod, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of silique)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"),
        partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1500))
   
-#fecundB<- glmer(Mature_length_siliques_2022 ~  S_initdiam +elev_km* treat+ (1|block) +(1|population), data= filter(grasshopper, Reproduction_2022 == 1),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+fecundB<- glmer(Mature_length_siliques_2022 ~  S_initdiam +elev_km* treat+ (1|block) +(1|population), data= filter(grasshopper, Reproduction_2022 == 1),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 Anova(fecundB,type="III")
 
 fecundmodB <-predictorEffect("elev_km",  partial.residuals=TRUE, fecundB)
@@ -129,12 +129,12 @@ hurdle_Model = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km
 
 fit_hnbinom1 = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km* Herbivore* Treatment + (1|block)+ (1| population), zi=~ S_initdiam +elev_km* Herbivore* Treatment  + (1|block)+ (1| population),data = grasshopper ,family=truncated_nbinom1)
 
-fit_trunc_poisson = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km* Herbivore* Treatment + (1|block)+ (1| population), zi=~ S_initdiam +elev_km* Herbivore* Treatment  + (1|block)+ (1| population),data = grasshopper ,family=truncated_poisson)
+#fit_trunc_poisson = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km* Herbivore* Treatment + (1|block)+ (1| population), zi=~ S_initdiam +elev_km* Herbivore* Treatment  + (1|block)+ (1| population),data = grasshopper ,family=truncated_poisson)
 
 #fit_ziGamma = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km* Herbivore* Treatment + (1|block)+ (1| population), zi=~ S_initdiam +elev_km* Herbivore* Treatment  + (1|block)+ (1| population),data = grasshopper ,family=ziGamma) #model has NA/NaN function evaluation warning loop
 
 
-AICtab(hurdle_Model, fit_hnbinom1, fit_trunc_poisson, fit_ziGamma) #hurdle is best
+#AICtab(hurdle_Model, fit_hnbinom1, fit_trunc_poisson, fit_ziGamma) #hurdle is best
 ```
 
 ```{r}
@@ -232,7 +232,7 @@ grasshopper2 <- grasshopper1[c(1,4,5,7:13,36,48:49)]
 
 ``` {r}
 ##We can proceed to the zero inflated beta regression. The issue is that these models are complicated to explain. Given that the result is nearly the same as the lmer model above, I suggest that Lisa presents the results from the lmer model      
-     # gamlss.model<- gamlss (formula=LAR_prop14~trtherb* elev_km+ random(cage_block)+random(Genotype),  sigma.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype), nu.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype),family=BEZI, data= grasshopper2)
+     gamlss.model<- gamlss (formula=LAR_prop14~trtherb* elev_km+ random(cage_block)+random(Genotype),  sigma.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype), nu.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype),family=BEZI, data= grasshopper2)
       summary(gamlss.model)
       
           
