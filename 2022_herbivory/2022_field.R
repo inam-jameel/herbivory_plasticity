@@ -14,33 +14,33 @@ library(visreg)
 library(fitdistrplus)
 library(gamlss)
 library(rjags)
-library(gamlss)
 library(effects)
+library(glmmTMB)
+
 
 setwd("~/Desktop/Anderson_data/herbivory/data/field/2022_herbivory/")
 
 #### read in data ####
-data<- read.csv("2022_gothic21_summary.csv")
+data<- read.csv("2022_summary_incomplete.csv")
 
 
 
 data $S_elev<-scale(data$elevation,center=TRUE, scale=TRUE)
 data $elev_km<-data$elevation/1000
 data $init_size<-scale(data$initial_size,center=TRUE, scale=TRUE)
-data $S_init_size<-scale(data$initial_size,center=TRUE, scale=TRUE)
 
 
 data$Genotype<-as.factor(data$Genotype)
 data$treatment<-as.factor(data$Treatment)
 data$block<-as.factor(data$block)
-#data$cohort<-as.factor(data$cohort)
+data$cohort<-as.factor(data$cohort)
 
-#data$elev_dist<-data$elevation-data$garden_elevation
+data$elev_dist<-data$elevation-data$garden_elevation
 
 #data$elev_dist<- abs(data$elev_dist)
-#data$abs_elev_dist<- abs(data$elev_dist)
+data$abs_elev_dist<- abs(data$elev_dist)
 
-#data $S_elev_dist_abs<-scale(data$abs_elev_dist,center=TRUE, scale=TRUE) #needed to be scaled to avoid issues in model
+data $S_elev_dist_abs<-scale(data$abs_elev_dist,center=TRUE, scale=TRUE) #needed to be scaled to avoid issues in model
 
 data$elev_dist_km<- data$elev_dist/1000
 data $S_elev_dist<-scale(data$elev_dist,center=TRUE, scale=TRUE)
@@ -50,21 +50,15 @@ data $S_elev_dist<-scale(data$elev_dist,center=TRUE, scale=TRUE)
 # Fitness models: Fitness ~ garden x treatment x elev
 #survival, reproduction, fecundity 
 
-#surivival
+#survival
 
-mod_surv<- glmer(survival~elev_km*treatment+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
+mod_surv<- glmer(survival~elev_km*treatment*garden+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #when i add cohort to the model, it doesnt work.. 
 Anova(mod_surv)
 plot(mod_surv)
 
-#concatenate garden and treatment to plot from visreg
-data $garden_treat<-interaction(data $garden, data $treatment,sep = "_")
-
-#mod_2<- glmer(survival~garden_treat*elev_km++cohort+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, but still nothing
-#Anova(mod_1) 
-
 #no residuals, multiline
 survived <-predictorEffect("elev_km",  partial.residuals=FALSE, mod_surv)
-plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"), 
+plot(survived, lwd=2,xlab="Source elevation (Km)", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
 
@@ -73,15 +67,33 @@ survived <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_surv)
 plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
+#concatenate garden and treatment to plot from visreg
+data $garden_treat<-interaction(data $garden, data $treatment,sep = "_")
+
+mod_2<- glmer(survival~garden_treat*elev_km+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, but still nothing
+Anova(mod_2) 
+
+#no residuals, multiline
+
+visreg(mod_2, overlay = FALSE, "elev_km", by="garden_treat", type="conditional", scale = "response", 
+       xlab="Source elevation (Km)", ylab="Fitness (Prob Survival)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       #line=list(col=grey(c(0,0.8))),
+       #points=list(cex=1.5,col=grey(c(0,0.8))),
+       jitter = TRUE)
+
+
+
+
 
 #prob reproduction
 
-mod_reproduction<- glmer(Flowered~treatment*elev_km+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+mod_reproduction<- glmer(Flowered~treatment*elev_km*garden+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
 Anova(mod_reproduction,type="III")  #significance of garden
 plot(mod_reproduction)
 
 visreg(mod_reproduction, overlay = TRUE, "elev_km", by="treatment", type="conditional", scale = "response", 
-       xlab="Garden", ylab="Fitness (Prob Flowering)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       xlab="Source Elevation (Km)", ylab="Fitness (Prob Flowering)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
        points=list(cex=1.5,col=grey(c(0,0.8))),
@@ -96,29 +108,45 @@ plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (Prob Reprodu
 
 surv <- subset(data, survival=="1")
 
-mod_reproduction1<- glmer(Flowered~treatment+elev_km+ (1|block)+(1|Genotype), data = surv, control=glmerControl(optimizer="bobyqa", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+mod_reproduction1<- glmer(Flowered~treatment*elev_km*garden+ (1|block)+(1|Genotype), data = surv, control=glmerControl(optimizer="bobyqa", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
 Anova(mod_reproduction1,type="III")  
 plot(mod_reproduction1)
 
-visreg(mod_reproduction1, overlay = TRUE, "elev_km", by="treatment", type="conditional", scale = "response", 
+
+reproduction <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_reproduction1)
+plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
+
+mod_reproduction2<- glmer(Flowered~garden_treat*elev_km+ (1|block)+(1|Genotype), data = surv, control=glmerControl(optimizer="bobyqa", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+Anova(mod_reproduction2,type="III")  
+plot(mod_reproduction2)
+
+visreg(mod_reproduction2, overlay = TRUE, "elev_km", by="garden_treat", type="conditional", scale = "response", 
        xlab="Source elevation", ylab="Fitness (Prob Flowering)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
-       points=list(cex=1.5,col=grey(c(0,0.8))),
+       #points=list(cex=1.5,col=grey(c(0,0.8))),
        jitter = FALSE)
-
-reproduction <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_reproduction1)
-plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
-     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
 
 #num fruits
 #not working... low numbers? only had a handful reproduce in the first place
 
+
+fecundA<- glmer(Mature_length_siliques ~  init_size +elev_km* garden* treatment+ (1|block) +(1|population), data= filter(surv, Mature_length_siliques > 0),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+Anova(fecundA,type="III")
+
+fruit <-predictorEffect("elev_km",  partial.residuals=TRUE,fecundA)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1200))
+
+
+
+
 library(glmmTMB)
 library(glmmTMB) #load it twice 
 
-hurdle_Model = glmmTMB (Mature_silique_number ~ treatment  + (1| block)+(1|Genotype), zi=~ treatment  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
+hurdle_Model = glmmTMB (Mature_silique_number ~ treatment * elev_km *garden  + (1| block)+(1|Genotype), zi=~ treatment* elev_km *garden  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
 
 diagnose(hurdle_Model)
 
@@ -135,9 +163,9 @@ Anova(hurdle_Model,component="cond")
 Anova(hurdle_Model,component="zi")
 
 
-fruit <-predictorEffect("treatment",  partial.residuals=TRUE,hurdle_Model)
+fruit <-predictorEffect("elev_km",  partial.residuals=TRUE,hurdle_Model)
 plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
-     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,100))
 
 ##
 
@@ -145,10 +173,27 @@ plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch
 # local adaptation models: fitness ~ T x elevational distance (source – transplant)
 #survival, reproduction, fecundity 
 
+hurdle_ModelLA = glmmTMB (Mature_silique_number ~ treatment * elev_dist_km+I(elev_dist_km^2)*treatment  + (1| block)+(1|Genotype), zi=~ treatment* elev_dist_km+I(elev_dist_km^2)*treatment *garden  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
+
+summary(hurdle_ModelLA)
+
+fruit <-predictorEffect("elev_dist_km",  partial.residuals=TRUE,hurdle_ModelLA)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,100))
+
+fecundA<- glmer(Mature_length_siliques ~  init_size +treatment * elev_dist_km+I(elev_dist_km^2)*treatment+ (1|block) +(1|population), data= filter(surv, Mature_length_siliques > 0),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+Anova(fecundA,type="III")
+
+fruitA <-predictorEffect("elev_dist_km",  partial.residuals=TRUE,fecundA)
+plot(fruitA, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1500))
+
+
+
 
 ##Then, we examine local adaptation using the probability of flowering as the fitness component. Here, values of 0 include individuals that failed to flower along with those that died
 
-mod_repro<- glmer(flowered~treatment* elev_dist_km+I(elev_dist_km^2)*treatment +cohort+(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) 
+mod_repro<- glmer(Flowered~treatment* elev_dist_km+I(elev_dist_km^2)*treatment +cohort+(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) 
 
 Anova(mod_repro)
 
@@ -195,6 +240,16 @@ visreg(mod_surv, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast
 
 ### couldnt figure this out
 mod_surv<- glmer(survival~treatment+S_elev_dist +(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
+
+Anova(mod_surv)
+
+mod_surv1 <-predictorEffect("S_elev_dist",  partial.residuals=TRUE, mod_surv)
+
+plot(mod_surv1, lwd=2,xlab="Elevational transfer distance", ylab="Fitness (probability of survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
+     
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"))
+
+
 
 mod_surv<- glmer(survival~treatment+elev_dist +(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
 

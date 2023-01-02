@@ -27,7 +27,7 @@ library(mgcv)
 library(glmmTMB)
 library(bbmle)
 
-setwd("~/Desktop/Anderson_data/herbivory/data/field/2022_herbivory/")
+setwd("~/Desktop/Anderson_data/herbivory/data/field/grasshopper/")
 
 
 #read in data 
@@ -78,7 +78,7 @@ logistic_model<-glmer(Reproduction_2022 ~ S_initdiam + elev_km* Herbivore* Treat
  ##Plotting the relationship between the probability of reproduction and source elevation under different environments.
 
  logmod <-predictorEffect("elev_km",  partial.residuals=TRUE, logistic_model)
-  plot(logmod, lwd=2,xlab="Source elevation (km)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"),
+  plot(logmod, lwd=2,xlab="Source elevation (km)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"),
        partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1.0))
   
 ```
@@ -91,7 +91,8 @@ Anova(fecund,type="III")
 fecundmod <-predictorEffect("elev_km",  partial.residuals=TRUE, fecund)
   plot(fecundmod, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of silique)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"),
        partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1500))
-  
+
+  #using concatenated water and herb treatment  
 fecundB<- glmer(Mature_length_siliques_2022 ~  S_initdiam +elev_km* treat+ (1|block) +(1|population), data= filter(grasshopper, Reproduction_2022 == 1),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 Anova(fecundB,type="III")
 
@@ -142,6 +143,10 @@ fit_hnbinom1 = glmmTMB (round(Mature_length_siliques_2022) ~ S_initdiam +elev_km
 Anova(hurdle_Model,type="III", component="zi")
 ##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). no sig.
 Anova(hurdle_Model,type="III", component="cond")
+
+fruit <-predictorEffect("elev_km",  partial.residuals=TRUE, hurdle_Model,component="cond")
+
+plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1000))
 
 ```
 
@@ -218,6 +223,51 @@ LAR_prop143 + theme_bw() + theme(text = element_text(size=20),axis.line.x = elem
 
 ```
 
+```{r}
+#Let's concatenate cage and Block so that we don't have to worry about nesting 
+      grasshopper1 $cage_block<-interaction(grasshopper1 $Cage, grasshopper1 $Block,sep = "_")
+            grasshopper1 $trtherb<-interaction(grasshopper1 $Treatment, grasshopper1 $Herbivore,sep = "_")
+
+
+##Now, we will do a basic lmer model. This frameowrk isn't great for proportional data, but it's the most straightforward approach. 
+
+    modA<- lmer (LAR_prop14~ Treatment*Herbivore*elev_km+ (1|cage_block)+(1|Genotype),data= grasshopper1)
+ Anova(modA,type="III")
+ ##You can see here that the residuals aren't great
+ plot(modA)
+ 
+ #Despite the heteroscedasticity in the residuals, hte plot here pretty much demonstrates the major patterns
+  visreg(modA, overlay = TRUE, "elev_km", by="Herbivore", type="conditional", #scale = "response", 
+       xlab="Source elevation (km)", ylab="Leaf damage from insect herbivores (proportion)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       #line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+       
+
+##This model allows us to visualize all treatments on the same figure
+ modB <- lmer (LAR_prop14~trtherb*elev_km+ (1|cage_block)+(1|Genotype),data= grasshopper1)
+ Anova(modB,type="III")
+   visreg(modB, overlay = TRUE, "elev_km", by="trtherb", type="conditional", #scale = "response", 
+       xlab="Source elevation (km)", ylab="Leaf damage from insect herbivores (proportion)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       #line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+   
+
+LAR <-predictorEffect("elev_km",  partial.residuals=TRUE, modA)
+plot(LAR, lwd=2,xlab="Source Elevation (Km)", ylab="Leaf Area Herbivorized", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,0.3))
+
+```
+
+
+
+
+
 
 ```{r, echo= FALSE}
 ##Gamlss models fail if there are any NA values in the entire dataset. So, I exclude NAs here
@@ -247,4 +297,99 @@ visreg(gamlss.model, overlay = TRUE, "elev_km", by="trtherb", type="conditional"
       
       
 ```
+
+SLA traits
+
+
+```{r}
+#First, we will use ggplot to look at the data:
+
+hist(grasshopper$SLA_rosette_2022)
+
+SLAgg = ggplot(grasshopper, aes(x= elevation,y=SLA_rosette_2022, group= treat))+geom_point(aes(colour= treat ),size=5) +scale_x_continuous("elevation")+ scale_y_continuous("SLA")
+SLAgg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank())+geom_smooth(aes(colour=treat), method="glm",size=1.6)
+                           
+  
+  
+  SLAgga<-ggplot(grasshopper, aes(x = Herbivore, y = SLA_rosette_2022, fill = Treatment,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper exclosure", "grasshopper enclosure")) +  scale_fill_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+```
+
+
+```{r}
+
+#SLA:
+
+#removing the individuals that had too young leaves for SLA
+grasshopper <- filter(grasshopper, Exclude_2022_SLA == "Include")
+
+
+
+hist(grasshopper$SLA_rosette_2022)
+
+SLAgg = ggplot(grasshopper, aes(x= elevation,y=SLA_rosette_2022, group= treat))+geom_point(aes(colour= treat ),size=5) +scale_x_continuous("elevation")+ scale_y_continuous("SLA")
+SLAgg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank())+geom_smooth(aes(colour=treat), method="glm",size=1.6)
+                           
+  
+  
+  SLAgga<-ggplot(grasshopper, aes(x = Herbivore, y = SLA_rosette_2022, fill = Treatment,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper exclosure", "grasshopper enclosure")) +  scale_fill_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+#specifying the concatenated treatment 
+SLA<- lmer(SLA_rosette_2022 ~ treat*elev_km+I(elev_km^2)*treat+S_initdiam +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+Anova(SLA)
+plot (SLA)
+
+visreg(SLA, overlay = FALSE, "elev_km", by="treat", #type="conditional", #scale = "response", 
+       xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       #line=list(col=grey(c(0,0.5))),
+      # points=list(cex=1.5,col=grey(c(0.2,0.8)))
+      )  
+
+SLAmod <-predictorEffect("elev_km",  partial.residuals=TRUE, SLA)
+  plot(SLAmod, lwd=2,xlab="Source elevation (km)", ylab="SLA", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"),
+       partial.residuals=list(smooth=FALSE, pch=20, col="black"), ylim=c(0,800))
+
+
+#specifying the threeway interaction
+SLA2<- lmer(SLA_rosette_2022 ~ Herbivore*Treatment*elev_km+Herbivore*Treatment*I(elev_km^2)+S_initdiam +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+Anova(SLA2)
+plot (SLA2)
+
+
+visreg(SLA2, overlay = TRUE, "elev_km", by="Treatment", #type="conditional", #scale = "response", 
+       xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(0.7,0.9))),
+       #line=list(col=grey(c(0,0.5))),
+      # points=list(cex=1.5,col=grey(c(0.2,0.8)))
+      )  
+
+SLAmod2 <-predictorEffect("elev_km",  partial.residuals=TRUE, SLA2)
+  plot(SLAmod2, lwd=2,xlab="Source elevation (km)", ylab="SLA cm3/g", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"),
+       partial.residuals=list(smooth=FALSE, pch=20, col="black"), ylim=c(0,650))
+
+
+
+
+```
+
+
+
+
+
 
