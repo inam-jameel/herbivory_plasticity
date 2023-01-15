@@ -259,7 +259,7 @@ LAR_prop143 + theme_bw() + theme(text = element_text(size=20),axis.line.x = elem
    
 
 LAR <-predictorEffect("elev_km",  partial.residuals=TRUE, modA)
-plot(LAR, lwd=2,xlab="Source Elevation (Km)", ylab="Leaf Area Herbivorized", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+plot(LAR, lwd=2,xlab="Source Elevation (Km)", ylab="Leaf area removed by herbivores", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,0.3))
 
 ```

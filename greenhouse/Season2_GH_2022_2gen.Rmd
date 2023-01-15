@@ -36,25 +36,20 @@ setwd("~/Desktop/Anderson_data/herbivory/data/greenhouse/")
 
 
 #read in data 
-gh2 <- read.csv("GHSummary2021.csv")
+gh2 <- read.csv("~/Desktop/Anderson_data/herbivory/data/greenhouse/gen2_GHSummary2022.csv")
+
+gh2 <- filter(gh2, Include == "yes" )
+
 #gh2 <- drop_na(gh2,LAR)
 gh2 $S_elev<-scale(gh2$elevation,center=TRUE, scale=TRUE)
 gh2$elev<-gh2$elevation/1000
 gh2 $S_init_size<-scale(gh2$ini_size,center=TRUE, scale=TRUE)
-gh2$SLA100<-gh2$SLA*100
 
 
-##convert LAR from census 3 (most damage) and census 13 (most recent) to proportion
- gh2$LAR_prop3<- gh2$LAR3/100
-  hist(gh2$LAR3)  
 
-
-gh2$LAR_prop13<- gh2$LAR13/100
-  hist(gh2$LAR13)
-  
-#Check that the conversion worked
-  hist(gh2$LAR_prop13)
-  #head(gh2)  
+# convert LAR from census 3 (most damage) and census 13 (most recent) to proportion
+ gh2$LAR_prop2<- gh2$S2_LAR2/100
+  hist(gh2$LAR_prop2)  
 
 ##Some of your variables are being read as characters not factors. Let's fix that
 gh2$genotype<-as.factor(gh2$genotype)
@@ -62,13 +57,16 @@ gh2$treatment<-as.factor(gh2$treatment)
 gh2$block<-as.factor(gh2$block)
 gh2$mat_treat<-as.factor(gh2$mat_treat)
 gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
-gh2$trichomes <- gh2$avg_trichomes +0.001 #added to do gamma glmer
+#gh2$trichomes <- gh2$avg_trichomes +0.001 #added to do gamma glmer
 ```
 ## Relative contributions {.tabset}
 
 ### SLA individual for full dataset
 ```{r}
-RC_SLA<- lmer(SLA100 ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+#SLA for second season is S2_SLA
+#also have to filter for the indiv that we have appropriate values for SLA (filter(gh2,S2_include_SLA = 1)
+
+RC_SLA<- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), test)
 Anova(RC_SLA)
 plot (RC_SLA)
 
@@ -92,13 +90,13 @@ visreg(RC_SLA,overlay = TRUE, "elev", by="mat_treat",type="conditional", scale =
 ```{r eval = FALSE, echo = FALSE} 
 #### SLA individual for Parents. Save for later?
 
-p_SLA <- subset(gh2, mat_treat == "Parent")
+#p_SLA <- subset(test, mat_treat == "Parent")
 
-parents_SLA<- lmer(SLA100 ~ treatment +(1|block) + (1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = p_SLA)
+#parents_SLA<- lmer(S2_SLA ~ treatment * elev + (1|block) + (1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = p_SLA)
 Anova(parents_SLA)
 plot (parents_SLA)
 
-visreg(parents_SLA, overlay = TRUE, "genotype", by="treatment", type="conditional", scale = "response", 
+visreg(parents_SLA, overlay = TRUE, "elev", by="treatment", type="conditional", scale = "response", 
        xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
@@ -109,7 +107,7 @@ library(rstatix)
 #descriptive and visual look at variable
 parents1 <- p_SLA %>% 
   group_by(treatment) %>%
-  get_summary_stats(SLA100, type="mean_se")
+  get_summary_stats(S2_SLA, type="mean_se")
 parents1
 
 ```
@@ -445,7 +443,9 @@ ggplot(
 
 Individual 
 ```{r}
-mod_flower<- glmer(flowered~ elev*treatment*mat_treat+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+
+#looking at overall flowered
+mod_flower<- glmer(Overall_flowered~ elev*treatment*mat_treat+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
 
 Anova(mod_flower) # all seperate factors are sig, sig interaction btw mat_treat and elev
 plot (mod_flower) #plot is strange, not sure if ok fit
@@ -455,10 +455,19 @@ flower <-predictorEffect("elev",  partial.residuals=TRUE, mod_flower)
 plot(flower, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
           partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
+flower <-predictorEffect("elev",  partial.residuals=TRUE, mod_flower)
+plot(flower, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+          partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
+
 #no parents
-mod_pr1<- glmer(flowered~ elev*treatment*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+mod_pr1<- glmer(Overall_flowered~ elev*treatment*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
 
 Anova(mod_pr1)
+
+flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
+
+plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
 
 flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
 
@@ -503,12 +512,12 @@ Anova(mod_pr,type="III") #not working, error for negative emmean values
 
 individual
 ```{r}
-mod_surv<- glmer(survival~elev*treatment*mat_treat + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+mod_surv<- glmer(S2_survival~elev*treatment*mat_treat + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
 Anova(mod_surv) #only treatment is sig
 plot(mod_surv)
 
 survived <-predictorEffect("elev",  partial.residuals=FALSE, mod_surv)
-plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), 
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"), 
           partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
 
 ```
@@ -547,9 +556,11 @@ LSmeans_surv <- read.csv("LSmeans_surv.csv", stringsAsFactors=TRUE)
 # Fecundity 
 individual
 ```{r}
-library(glmmTMB)
+#library(glmmTMB)
 
-hurdle <- glmmTMB (Mature_silique_number ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
+#looking at overall
+
+#hurdle <- glmmTMB (Overall_Mature_silique_number ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
 
 diagnose(hurdle)
 
@@ -560,9 +571,58 @@ summary(hurdle) #zero inflated model is significant, but not sure if i am plotti
 
 fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle,component="zi")
 
+plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,25))
+
 plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,25))
 
 ```
+
+```{r}
+#library(glmmTMB)
+
+#looking at season 2 silique length
+
+#nothing is significant here..
+
+#hurdle2 <- glmmTMB (S2_Mature_length_siliques ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
+
+diagnose(hurdle2)
+
+Anova(hurdle2,type="III", component="zi")
+
+summary(hurdle2)
+
+
+fruit2 <-predictorEffect("elev",  partial.residuals=TRUE, hurdle2,component="zi")
+
+plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+#no parents
+
+
+#hurdle3 <- glmmTMB (S2_Mature_length_siliques ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = subset(gh2, mat_treat!= "Parent") ,family=truncated_nbinom2)
+
+diagnose(hurdle3)
+
+Anova(hurdle3,type="III", component="zi")
+
+summary(hurdle3)
+
+
+fruit3 <-predictorEffect("elev",  partial.residuals=TRUE, hurdle3,component="zi")
+
+plot(fruit3, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+plot(fruit3, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+
+```
+
 
 Family level
 ```{r eval = FALSE, echo = FALSE}
@@ -607,10 +667,13 @@ individual
 
 LAR_data <- subset(gh2, treatment == "Herbivorized")
 
-LAR_3 <- drop_na(LAR_data,LAR_prop3) #this removes the rows without LAR values
-LAR_3 <- dplyr::select(LAR_3, LAR_prop3, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
+LAR_3 <- drop_na(LAR_data,LAR_prop2) #this removes the rows without LAR values
+LAR_3 <- dplyr::select(LAR_3, LAR_prop2, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
 
-gamlss_mod1<- gamlss (formula=LAR_prop3~elev*mat_treat+ S_init_size+ random(block)+random(genotype), family=BE, data= LAR_3)
+#response variable cant have zeros, so I added 0.0001 to every value
+
+LAR_3$LAR_prop2 <- LAR_3$LAR_prop2 + 0.0001
+gamlss_mod1<- gamlss (formula=LAR_prop2~elev*mat_treat+ S_init_size+ random(block)+random(genotype), family=BE, data= LAR_3)
 summary(gamlss_mod1)
 plot(gamlss_mod1)
 
@@ -635,6 +698,21 @@ visreg(gamlss_mod2, 'elev', by= "mat_treat", overlay = FALSE, type="conditional"
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
        points=list(cex=1.5,col=grey(c(0,0.8)))) 
+
+#lmer model
+  modA<- lmer(LAR_prop2~ mat_treat*elev+ S_init_size+ (1|block)+(1|genotype),data= LAR_3)
+ Anova(modA,type="III")
+ ##You can see here that the residuals aren't great
+ plot(modA)
+ 
+ visreg(modA, 'elev', by= "mat_treat", overlay = FALSE, type="conditional", 
+       #scale = "response", 
+       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8))),
+       points=list(cex=1.5,col=grey(c(0,0.8)))) 
+ 
+
 
 
 ``` 
