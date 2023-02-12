@@ -64,9 +64,9 @@ gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effec
 ### SLA individual for full dataset
 ```{r}
 #SLA for second season is S2_SLA
-#also have to filter for the indiv that we have appropriate values for SLA (filter(gh2,S2_include_SLA = 1)
+#also have to filter for the indiv that we have appropriate values for SLA (test=filter(gh2,S2_include_SLA == 1)
 
-RC_SLA<- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), test)
+RC_SLA<- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = test)
 Anova(RC_SLA)
 plot (RC_SLA)
 
@@ -469,13 +469,93 @@ flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
 plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
                                                                               col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
 
-flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
+#flowerP <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr1)
 
-plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+#plot(flowerP, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+#                                                                             col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#control_gh2 <- subset(gh2, treatment!="herbivorized")
+mod_pr2<- glmer(Overall_flowered~ treatment*elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr2)
+flowerP2 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr2)
+
+plot(flowerP2, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+mod_pr3<- glmer(S2_flowered~ treatment*elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr3)
+flowerP3 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr3)
+
+plot(flowerP3, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+
+mod_pr4<- glmer(S1_flowered~ treatment*elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(gh2, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr4)
+flowerP4 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr4)
+
+plot(flowerP4, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+
+
+```
+
+
+i am playing with the models a bit
+```{r}
+# comparing within the herb treatment, no parents
+
+herb <- subset(gh2, treatment == "Herbivorized")
+cont <- subset(gh2, treatment == "Control")
+
+
+
+#mod_pr5<- glmer(S1_flowered~ elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(cont, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr5)
+flowerP5 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr5)
+
+plot(flowerP5, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+#mod_pr6<- glmer(S2_flowered~ elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(cont, mat_treat!="Parent"), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr6)
+flowerP6 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr6)
+
+plot(flowerP6, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
+                                                                              col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
+
+mod_pr7<- glmer(Overall_flowered~ elev*mat_treat+ S_init_size+(1|block)+(1|genotype), data =subset(herb, mat_treat!="Parent"
+), control=glmerControl(optimizer="optimx", tolPwrss=1e-3,optCtrl=list(method="nlminb")), family=binomial)
+
+Anova(mod_pr7)
+flowerP7 <-predictorEffect("elev",  partial.residuals=TRUE, mod_pr7)
+
+plot(flowerP7, lwd=2,xlab="Source Elevation (KM)", ylab="Probability of reproduction", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
                                                                               col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1))
 
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 family level (not working)
 ```{r eval = FALSE, echo = FALSE}

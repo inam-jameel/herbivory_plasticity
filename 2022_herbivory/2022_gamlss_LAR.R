@@ -140,7 +140,7 @@ P
 modB<- lmer (LAR_prop~elev_km*garden*treatment+(1|block_garden),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=data_LAR)
 
 
-Anova(modA)
+Anova(modB)
 
 LAR <-predictorEffect("elev_km",  partial.residuals=TRUE, modA)
 plot(LAR, lwd=2,xlab="Source Elevation (Km)", ylab="Leaf Area Herbivorized", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
@@ -151,7 +151,7 @@ plot(LAR, lwd=2,xlab="Source Elevation (Km)", ylab="Leaf Area Herbivorized", pch
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,0.3))
 
 
-visreg(modB, overlay = FALSE, "elev_km", by="garden_treat", type="conditional", 
+visreg(modB, overlay = FALSE, "elev_km", by="garden", type="conditional", 
        #scale = "response",   
        xlab="Source elevation", ylab="Leaf area removed", partial=TRUE,  band = TRUE) 
 
