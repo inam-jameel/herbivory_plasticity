@@ -115,10 +115,11 @@ plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction
 #num fruits
 #not working... low numbers? only had a handful reproduce in the first place
 
+
 library(glmmTMB)
 library(glmmTMB) #load it twice 
 
-hurdle_Model = glmmTMB (Mature_silique_number ~ treatment  + (1| block)+(1|Genotype), zi=~ treatment  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
+hurdle_Model = glmmTMB (Mature_silique_number ~ treatment*elevation  + (1| block)+(1|Genotype), zi=~ treatment  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
 
 diagnose(hurdle_Model)
 
@@ -135,8 +136,8 @@ Anova(hurdle_Model,component="cond")
 Anova(hurdle_Model,component="zi")
 
 
-fruit <-predictorEffect("treatment",  partial.residuals=TRUE,)
-plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+fruit <-predictorEffect("elevation",  partial.residuals=TRUE,hurdle_Model)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
 ##
@@ -154,17 +155,17 @@ Anova(mod_repro)
 
 pred_repro <-predictorEffect("elev_dist_km",  partial.residuals=FALSE, mod_repro)
 
-plot(pred_repro, lwd=2,xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+plot(pred_repro, lwd=2,xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", pch=19, type="response",lines=list(multiline=FALSE, lty=1, col="black"),ylim=c(0,0.25), 
      
      partial.residuals=list(smooth=FALSE, pch=19, col="black"))
 
 #model for RMBL talk
 visreg(mod_repro, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast", 
        scale = "response",
-       xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", partial=TRUE,
+       xlab="Elevational transfer distance", ylab="Fitness (probability of flowering)", partial=FALSE,
        fill=list(col="light grey"
                  #(c(0.99), alpha=0)
-       ), band = FALSE,
+       ), band = TRUE,
        line=list(col=grey(c(0.2,0.6))),
        points=list(cex=0.65,  pch=(19)))
 
@@ -192,6 +193,33 @@ visreg(mod_surv, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast
        ), band = FALSE,
        line=list(col=grey(c(0.2,0.6))),
        points=list(cex=0.65,  pch=(19)))
+
+#fecundity
+
+flowered <- subset(surv, flowered=="1")
+
+
+mod_fruit<- lmer( Mature_silique_number ~ treatment* elev_dist_km+I(elev_dist_km^2)*treatment +cohort+(1|block)+(1|Genotype) +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = flowered)
+
+Anova(mod_fruit)
+
+fruit <-predictorEffect("elev_dist_km",  partial.residuals=TRUE,mod_fruit)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,20))
+
+#model for RMBL talk
+visreg(mod_fruit, overlay = FALSE, "elev_dist_km", by="treatment", type="contrast", 
+       scale = "response",
+       xlab="Elevational transfer distance", ylab="Fitness (survival)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+
+ 
+
+
 
 ### couldnt figure this out
 mod_surv<- glmer(survival~treatment+S_elev_dist +(1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only

@@ -173,13 +173,15 @@ plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch
 # local adaptation models: fitness ~ T x elevational distance (source – transplant)
 #survival, reproduction, fecundity 
 
-hurdle_ModelLA = glmmTMB (Mature_silique_number ~ treatment * elev_dist_km+I(elev_dist_km^2)*treatment  + (1| block)+(1|Genotype), zi=~ treatment* elev_dist_km+I(elev_dist_km^2)*treatment *garden  + (1| block)+(1|Genotype),data = surv ,family=truncated_nbinom2)
+hurdle_ModelLA = glmmTMB (Mature_length_siliques ~ treatment * elev_dist_km+I(elev_dist_km^2)*treatment  + (1| block)+(1|Genotype), zi=~ treatment* elev_dist_km+I(elev_dist_km^2)*treatment *garden  + (1| block)+(1|Genotype),data = subset(surv, Mature_length_siliques > 0) ,family=Gamma(link=log))
+
+Anova(fecundA,type="III")
 
 summary(hurdle_ModelLA)
 
-fruit <-predictorEffect("elev_dist_km",  partial.residuals=TRUE,hurdle_ModelLA)
-plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
-     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,100))
+fruit <-predictorEffect("elev_dist_km",  partial.residuals=FALSE,hurdle_ModelLA)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1000))
 
 fecundA<- glmer(Mature_length_siliques ~  init_size +treatment * elev_dist_km+I(elev_dist_km^2)*treatment+ (1|block) +(1|population), data= filter(surv, Mature_length_siliques > 0),family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 Anova(fecundA,type="III")
@@ -187,6 +189,44 @@ Anova(fecundA,type="III")
 fruitA <-predictorEffect("elev_dist_km",  partial.residuals=TRUE,fecundA)
 plot(fruitA, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1500))
+
+flowered <- subset(surv, Flowered=="1")
+
+
+#mod_fruit<- lmer( Mature_silique_number ~ treatment* S_elev_dist_abs+I(S_elev_dist_abs^2)*treatment +cohort+(1|Genotype) ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = flowered)
+
+Anova(mod_fruit)
+
+fruit <-predictorEffect("S_elev_dist_abs",  partial.residuals=TRUE,mod_fruit)
+plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,20))
+
+#model for RMBL talk
+visreg(mod_fruit, overlay = FALSE, "S_elev_dist_abs", by="treatment", type="contrast", 
+       scale = "response",
+       xlab="Elevational transfer distance", ylab="Fitness (survival)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+
+mod_fruit1<- lmer( Mature_silique_number ~ treatment* S_elev_dist+I(S_elev_dist^2)*treatment +cohort+(1|block)+(1|Genotype) +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = flowered)
+
+Anova(mod_fruit1)
+
+fruit1 <-predictorEffect("S_elev_dist",  partial.residuals=TRUE,mod_fruit1)
+plot(fruit1, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=2:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,20))
+
+visreg(mod_fruit1, overlay = FALSE, "S_elev_dist", by="treatment", type="contrast", 
+       scale = "response",
+       xlab="Elevational transfer distance", ylab="Fitness (survival)", partial=TRUE,
+       fill=list(col="light grey"
+                 #(c(0.99), alpha=0)
+       ), band = FALSE,
+       line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
 
 
 
