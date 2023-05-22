@@ -59,9 +59,9 @@ gh2$mat_treat<-as.factor(gh2$mat_treat)
 gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
 #gh2$trichomes <- gh2$avg_trichomes +0.001 #added to do gamma glmer
 ```
-## Relative contributions {.tabset}
+# Relative contributions {.tabset}
 
-### SLA individual for full dataset
+## SLA individual for full dataset
 ```{r}
 #SLA for second season is S2_SLA
 #also have to filter for the indiv that we have appropriate values for SLA 

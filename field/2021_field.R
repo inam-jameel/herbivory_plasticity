@@ -23,6 +23,7 @@ setwd("~/Desktop/Anderson_data/herbivory/data/field/2021_herbivory/")
 data<- read.csv("Field2021_summary.csv")
 
 
+
 data $S_elev<-scale(data$elevation,center=TRUE, scale=TRUE)
 data $elev_km<-data$elevation/1000
 data $init_size<-scale(data$initial_size,center=TRUE, scale=TRUE)
@@ -47,20 +48,29 @@ data $S_elev<-scale(data$elevation,center=TRUE, scale=TRUE)
 data $elev_km<-data$elevation/1000
 data $S_init_size<-scale(data$initial_size,center=TRUE, scale=TRUE)
 
-# Fitness models: Fitness ~ garden x treatment x elev
+#filtering for commitee meeting
+data $block_garden<-interaction(data $block, data $garden,sep = "_")
+data $block_treatment<-interaction(data $block, data $treatment,sep = "_")
+data $cohort_garden<-interaction(data $cohort, data $garden,sep = "_")
+
+
+data <- filter(data, garden != "Estess")
+data <- filter(data, cohort_garden != "2020_Gothic")
+
+
+#### Fitness models: Fitness ~ garden x treatment x elev ####
 #survival, reproduction, fecundity 
+#removed cohort from these models
 
 #surivival
 
-mod_surv<- glmer(survival~garden*elev_km+treatment+cohort+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
+mod_surv<- glmer(survival~garden*elev_km+treatment+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, gardenXelevation interaction only
 Anova(mod_surv)
 plot(mod_surv)
 
 #concatenate garden and treatment to plot from visreg
 data $garden_treat<-interaction(data $garden, data $treatment,sep = "_")
 
-#mod_2<- glmer(survival~garden_treat*elev_km++cohort+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial) #best model, but still nothing
-#Anova(mod_1) 
 
 #no residuals, multiline
 survived <-predictorEffect("elev_km",  partial.residuals=FALSE, mod_surv)
@@ -70,40 +80,48 @@ plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=
 
 #residuals
 survived <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_surv)
-plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"), 
+plot(survived, lwd=2,xlab="Elevation of origin", ylab="Fitness (survival)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"),
      partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
 
 
 #prob reproduction
 
-mod_reproduction<- glmer(flowered~garden+treatment+elev_km+cohort+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+#mod_reproduction<- glmer(flowered~garden+treatment+elev_km+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+
+
+mod_reproduction<- glmer(flowered~garden+treatment+elev_km+ (1|block)+(1|Genotype), data = data, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
+
+
+mod_reproduction<- glm(flowered~garden+treatment+elev_km, data = data, family=binomial)
+
+
 Anova(mod_reproduction,type="III")  #significance of garden
 plot(mod_reproduction)
 
 visreg(mod_reproduction, overlay = TRUE, "garden", by="treatment", type="conditional", scale = "response", 
-       xlab="Garden", ylab="Fitness (Prob Flowering)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=grey(c(0,0.8))),
-       points=list(cex=1.5,col=grey(c(0,0.8))),
+       xlab="Garden", ylab="Fitness (Prob Flowering)", partial=F, cex.lab = 1.5,cex.axis = 1.5,
+       #fill=list(col="blue"),
+       #line=list(col=grey(c(0,0.8))),
+       #points=list(cex=1.5,col=grey(c(0,0.8))),
        jitter = TRUE)
        
 
-reproduction <-predictorEffect("garden",  partial.residuals=TRUE, mod_reproduction)
-plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (Prob Reproduction)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"), 
-     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1))
+reproduction <-predictorEffect("elev_km",  partial.residuals=TRUE, mod_reproduction)
+plot(reproduction, lwd=2,xlab="Elevation of origin", ylab="Fitness (Prob Reproduction)", type="response",lines=list(multiline=FALSE, lty=3:1, col="black"), 
+     partial.residuals=list(smooth=TRUE, col="black"), ylim=c(0,1))
 
 #subset only surviving plants
 
 surv <- subset(data, survival=="1")
 
-mod_reproduction1<- glmer(flowered~garden+treatment+elev_km+cohort+ (1|block)+(1|Genotype), data = surv, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+mod_reproduction1<- glmer(flowered~garden+treatment+elev_km+ (1|block)+(1|Genotype), data = surv, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
 Anova(mod_reproduction1,type="III")  #only trending signif of treatment and elev_km
 plot(mod_reproduction1)
 
-visreg(mod_reproduction, overlay = TRUE, "elev_km", by="treatment", type="conditional", scale = "response", 
+visreg(mod_reproduction, overlay = TRUE, "elev_km", by="garden", type="conditional", scale = "response", 
        xlab="Source elevation", ylab="Fitness (Prob Flowering)", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=grey(c(0,0.8))),
+       #fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8,0.5))),
        points=list(cex=1.5,col=grey(c(0,0.8))),
        jitter = FALSE)
 
@@ -143,7 +161,7 @@ plot(fruit, lwd=2,xlab="Elevation of origin", ylab="Fitness (reproduction)", pch
 ##
 
 
-# local adaptation models: fitness ~ T x elevational distance (source – transplant)
+#### local adaptation models: fitness ~ T x elevational distance (source – transplant)####
 #survival, reproduction, fecundity 
 
 
@@ -245,11 +263,11 @@ LSmeans_LAR <-na.omit(LSmeans_LAR)
 LSmeans_LAR$emmean100 <- LSmeans_LAR$emmean/100
 #had to delete the genotypes that did not have both c and p 
 
-mod <- lmer (emmean~treatment+elev_km+garden+(1|genotype),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=LSmeans_LAR)
+mod <- lmer (emmean~treatment+elev_km*garden+(1|genotype),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=LSmeans_LAR)
 
 Anova(mod)
 
-visreg(mod, overlay = TRUE, "garden", by="treatment", type="conditional", scale = "response", 
+visreg(mod, overlay = TRUE, "elev_km", by="treatment", type="conditional", scale = "response", 
        xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
@@ -320,41 +338,32 @@ E <- E_LAR + scale_color_grey() + theme_classic() + theme(text = element_text(si
 
 ####LAR,#untested/outdated with summary file #### 
 
-#need to update with specific censuses to
-data$LAR_prop<- data$LAR/100
+#need to update with specific censuses. going with LAR_7 right now
+data$LAR_prop<- data$LAR_7/100
 
 ##Check that the conversion worked
 
 hist(data$LAR_prop)
 
-##creating new dataset for 2021 cohort
-
-cohort2021 <- subset(data,cohort=="2021")
-
-
-##Check to make sure that you have the necessary columns.
-
-head(cohort2021)      
-
 #Let's concatenate block and garden so that we don't have to worry about nesting block within garden
 
-cohort2021 $block_garden<-interaction(cohort2021 $block, cohort2021 $garden,sep = "_")
+data $block_garden<-interaction(data $block, data $garden,sep = "_")
 
-##some variables are being read as chr not factors
 
-cohort2021$garden<-as.factor(cohort2021$garden)
-cohort2021$genotype<-as.factor(cohort2021$genotype)
-cohort2021$treatment<-as.factor(cohort2021$treatment)
-cohort2021$block<-as.factor(cohort2021$block)
+data_LAR<-data %>% dplyr::select(treatment, S_elev, elev_km,garden,block_garden,Genotype,LAR_prop)
 
 #remove NA values for gamlss
 
-c2021<-na.omit(cohort2021)
+data_LAR<-na.omit(data_LAR)
+
+
+LSmeans_LAR <- read.csv("apr1623LSmeans_LAR.csv", stringsAsFactors=FALSE)
+
 
 ##Okay, it looks like there were no NAs in that column, so we can proceed to the zero-one inflated negative binomial regression. What I've written out here is the full model, which has convergence issues.
 
 #LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(genotype)
-gamlss.modelA<- gamlss (formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(genotype), sigma.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(genotype), nu.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(genotype), tau.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(genotype), family=BEINF, data= c2021)
+gamlss.modelA<- gamlss (formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(Genotype), sigma.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(Genotype), nu.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(Genotype), tau.formula=LAR_prop~treatment*S_elev*garden+ random(block_garden)+random(Genotype), family=BEINF, data= data_LAR)
 
 
 ##Perhaps we don't want to interact everything. Please keep in mind that garden should be a fixed effect, not random (you only have 2 gardens), but maybe the patterns don't differ much across gardens:
@@ -362,7 +371,7 @@ gamlss.modelA<- gamlss (formula=LAR_prop~treatment*S_elev*garden+ random(block_g
 
 
 #LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype)
-gamlss.model<- gamlss (formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), sigma.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), nu.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), tau.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), family=BEINF, data= c2021)
+gamlss.model<- gamlss (formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), sigma.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), nu.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), tau.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), family=BEINF, data= data_LAR)
 
 #many many warnings
 
@@ -372,23 +381,23 @@ summary(gamlss.model) #nu only has garden as significant
 
 #Stepwise analyis to find the best model (https://rdrr.io/cran/gamlss/man/stepGAIC.html). This process takes a couple of minutes.
 
-dropterm(gamlss.model)
-mod2<-stepGAIC(gamlss.model)
+dropterm(gamlss.model) #what does this do?
+mod2<-stepGAIC(gamlss.model) #50 or more warnings
 mod2$anova
 
-summary(mod2) # there are significant effects of treatment, elevation of origin and their interaction for mu (the probability of being damaged). For nu (amount of damage on plants with >0 and <1 damage; i.e., the beta component), there is a significant effect of elevation of origin and garden, but not treatment or elevation by treatment). For tau (probability of 100% damage – which you likely don’t have), there are no significant effects.
+summary(mod2) #Mu, probability of being damaged: there are significant effects of treatment, elevation of origin and their interaction. For nu (amount of damage on plants with >0 and <1 damage; i.e., the beta component), there is a significant effect of garden, but not treatment or elevation by treatment. For tau (probability of 100% damage – which you likely don’t have), there are no significant effects.what is sigma?
 
 
 #So, we might be able to remove the tau component from the model, and run a zero-inflated model:
   
-  gamlss.modelB<- gamlss (formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), sigma.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), nu.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(genotype), family=BEINF, data= c2021)
+  gamlss.modelB<- gamlss (formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), sigma.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), nu.formula=LAR_prop~treatment*S_elev+garden+ random(block_garden)+random(Genotype), family=BEINF, data= data_LAR)
 
 plot(gamlss.modelB)
 
 summary(gamlss.modelB)
   
   
-visreg(gamlss.modelB, overlay = TRUE, "S_elev", by="treatment", type="conditional", #scale = "response", 
+visreg(gamlss.modelB, "S_elev", by="treatment", type="conditional", #scale = "response", 
          xlab="Elev", ylab="LAR", partial=TRUE,
          fill=list(col="light grey"
                    #(c(0.99), alpha=0)
@@ -396,9 +405,9 @@ visreg(gamlss.modelB, overlay = TRUE, "S_elev", by="treatment", type="conditiona
          #line=list(col=grey(c(0.2,0.6))),
           points=list(cex=0.65,  pch=(19)))  
 
-c2021 $garden_treat<-interaction(c2021 $treatment, c2021 $garden,sep = "_")
+data_LAR $garden_treat<-interaction(data_LAR $treatment, data_LAR $garden,sep = "_")
   
-gamlss.modelE<- gamlss (formula=LAR_prop~S_elev* garden_treat + random(block_garden)+random(genotype), sigma.formula=LAR_prop~S_elev* garden_treat+ random(block_garden)+random(genotype), nu.formula=LAR_prop~S_elev* garden_treat+ random(block_garden)+random(genotype), family=BEINF, data= c2021)
+gamlss.modelE<- gamlss (formula=LAR_prop~S_elev* garden_treat + random(block_garden)+random(Genotype), sigma.formula=LAR_prop~S_elev* garden_treat+ random(block_garden)+random(Genotype), nu.formula=LAR_prop~S_elev* garden_treat+ random(block_garden)+random(Genotype), family=BEINF, data= data_LAR)
   
   plot(gamlss.modelE)
   
@@ -408,9 +417,9 @@ gamlss.modelE<- gamlss (formula=LAR_prop~S_elev* garden_treat + random(block_gar
          #scale = "response",   
          xlab="Source elevation", ylab="Leaf area removed", partial=TRUE,  band = FALSE)    
 
-
+##this code doenst work!
   #You can create a datafile with the predicted data from the nu component using this code for plotting:
-  pred<-predict(gamlss.modelB, newdata=c2021, type="response", what="nu")
+  pred<-predict(gamlss.modelE, newdata=data_LAR, type="response", what="nu")
 
   str(gamlss.modelB)
   
@@ -429,19 +438,59 @@ P
 
 
 
+
+
+
 ## linear model, this is the incorrect fit  but nothing else is working
 ##Now to get LSMEANS
-modB<- lmer (LAR_prop~genotype*treatment*garden+(1|Block_Garden),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=data_LAR)
+modB<- lmer (LAR_prop~Genotype*treatment*garden+(1|block_garden),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=data_LAR)
 
 
-fam_avg_linear<-emmeans(modB, ~genotype:treatment:garden)
+fam_avg_linear<-emmeans(modB, ~Genotype:treatment:garden)
 fam_means_linear<-as.data.frame(fam_avg_linear)
 
-write.csv(fam_means_linear,file="LSmeans_LAR.csv")
+elev <- data_LAR[c("Genotype","elev_km")] #make dataframe of genotypes and corresponding elev
+elev <- unique(elev) #calls unique rows 
+LSmeans_LAR <- merge(fam_means_linear,elev,by="Genotype") #merge the dataframes
 
 
-LSmeans_LAR <- read.csv("LSmeans_LAR.csv", stringsAsFactors=FALSE)
-LSmeans_LAR <-na.omit(LSmeans_LAR)
+write.csv(fam_means_linear,file="apr1623LSmeans_LAR.csv")
+
+
+####commitee meeting 2023 at this point i abandonded recalculating LSmeans and went to the means i previously calculated last year.####
+LSmeans_LAR <- read.csv("LSmeans_LAR3.csv", stringsAsFactors=FALSE)
+
+#remove estess
+LSmeans_LAR <- filter(LSmeans_LAR, garden != "Estess")
+
+LSmeans_LAR$Genotype<-as.factor(LSmeans_LAR$genotype)
+
+#had to go in and manually remove the genos that didnt have values for both treatments
+# 194_2, schofield
+# 267_13A, schofield
+# 270_3, schofield
+
+modC<- lmer (emmean~elev*treatment+elev*garden+(1|Genotype),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=LSmeans_LAR)
+
+modC<- lm (emmean~elev_km*garden*treatment, data=LSmeans_LAR)
+
+Anova(modC)
+
+visreg(modC,overlay=F,"elev", by ="garden")
+
+
+#boxplot
+LARgga<-ggplot(LSmeans_LAR, aes(x = garden, y = emmean, fill = treatment,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Garden")+ scale_y_continuous("Leaf Area Herbivorized",limits =c(0, 0.15)) +# this sets the scale
+  geom_point(pch = 21, position = position_jitterdodge())
+LARgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                            panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("Gothic (Low)", "Schofield (High)")) +  scale_fill_manual(values = c( "lightgreen","pink"), name = "Herbivory treatment", labels = c("Control","Pesticide"))
+                                                                                                                                                                           
+# scatter plot
+p_lar= ggplot(LSmeans_LAR, aes(x= elev,y= emmean, #group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Leaf Area Herbivorized",limits =c(0, 0.15))+ scale_x_continuous("Source Elevation")  
+p_lar + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"),axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ garden, scales="free_x") +scale_colour_manual(values = c( "lightgreen","pink"), name = "Herbivory treatment", labels = c("Control","Pesticide"))
 
 
 

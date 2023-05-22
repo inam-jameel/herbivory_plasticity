@@ -46,23 +46,53 @@ gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effec
 #plasticity
 
 #SLA
+
+
+
+
+
 modB<- lmer(SLA ~ genotype:mat_treat:treatment +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
 fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
 fam_means_linear<-as.data.frame(fam_avg_linear)
 write.csv(fam_means_linear,file="LSmeans_SLA.csv")
+
+
+
 LSmeans_SLA <- read.csv("LSmeans_SLA.csv", stringsAsFactors=TRUE)
 #now we have lsmeans, but need to add corresponding elevation
-elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
-elev <- unique(elev) #calls unique rows 
-LSmeans_SLA <- merge(LSmeans_SLA,elev,by="genotype") #merge the dataframes
+#elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+#elev <- unique(elev) #calls unique rows 
+#LSmeans_SLA <- merge(LSmeans_SLA,elev,by="genotype") #merge the dataframes
 
-LSmeans_SLA$elev<-LSmeans_SLA$elevation/1000
-LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
+#LSmeans_SLA$elev<-LSmeans_SLA$elevation/1000
+#LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
 
-write.csv(LSmeans_SLA,file="LSmeans_SLA.csv")
+#write.csv(LSmeans_SLA,file="LSmeans_SLA.csv")
 
 
-modB<- lm(emmean ~ elevation*treatment*mat_treat ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = subset(LSmeans_SLA, mat_treat=="Parent"))
+
+
+hist(LSmeans_SLA$emmean)
+
+SLAgga<-ggplot(LSmeans_SLA, aes(x = mat_treat, y = emmean, fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                            panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+gh_sla= ggplot(LSmeans_SLA, aes(x= elev,y= emmean, group= treatment, 
+                                colour= treatment))+geom_point(size=5) + scale_y_continuous("SLA CM3/g")+ scale_x_continuous("Source Elevation")  
+gh_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                            panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+
+modB<- lm(emmean ~ elevation*treatment+mat_treat ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = LSmeans_SLA)
 Anova(modB)
 
 

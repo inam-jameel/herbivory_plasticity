@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/Desktop/Anderson_data/herbivory/data/greenhouse/")
 ```
 
 
@@ -59,14 +60,43 @@ gh2$mat_treat<-as.factor(gh2$mat_treat)
 gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
 #gh2$trichomes <- gh2$avg_trichomes +0.001 #added to do gamma glmer
 ```
-## Relative contributions {.tabset}
+# Relative contributions {.tabset}
 
-### SLA individual for full dataset
+## SLA individual for full dataset
 ```{r}
 #SLA for second season is S2_SLA
-#also have to filter for the indiv that we have appropriate values for SLA (test=filter(gh2,S2_include_SLA == 1)
+#also have to filter for the indiv that we have appropriate values for SLA (gh2=filter(gh2,S2_include_SLA == 1)
 
-RC_SLA<- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = test)
+
+hist(gh2$S2_SLA)
+  
+SLAgga<-ggplot(gh2, aes(x = mat_treat, y = S2_SLA, fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+gh_sla= ggplot(gh2, aes(x= elev,y= S2_SLA, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("SLA CM3/g")+ scale_x_continuous("Source Elevation")  
+gh_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+h_sla= ggplot(grasshopper, aes(x= elevation,y= SLA_rosette_2022, group= Treatment, 
+                               colour= Treatment))+geom_point(size=5) + scale_y_continuous("SLA CM3/g")+ scale_x_continuous("Source Elevation")  
+h_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ Herbivore, scales="free_x") +scale_colour_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+
+
+
+RC_SLA<- lmer(S2_SLA ~ treatment+elev+mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
 Anova(RC_SLA)
 plot (RC_SLA)
 
@@ -87,12 +117,15 @@ visreg(RC_SLA,overlay = TRUE, "elev", by="mat_treat",type="conditional", scale =
 ```
 
 
+
+
+
 ```{r eval = FALSE, echo = FALSE} 
 #### SLA individual for Parents. Save for later?
 
-#p_SLA <- subset(test, mat_treat == "Parent")
+p_SLA <- subset(gh2, mat_treat == "Parent")
 
-#parents_SLA<- lmer(S2_SLA ~ treatment * elev + (1|block) + (1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = p_SLA)
+parents_SLA<- lmer(S2_SLA ~ treatment * elev +S_init_size+(1|block) + (1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = p_SLA)
 Anova(parents_SLA)
 plot (parents_SLA)
 
@@ -100,7 +133,16 @@ visreg(parents_SLA, overlay = TRUE, "elev", by="treatment", type="conditional", 
        xlab="Elevation (m)", ylab="Specific leaf area", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
-       points=list(cex=1.5,col=grey(c(0.2,0.8))))  
+       points=list(cex=1.5,col=grey(c(0.2,0.8))))
+
+  SLAgga<-ggplot(p_SLA, aes(x = treatment, y = S2_SLA, fill = treatment,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No herbivory", "Herbivorized")) +  scale_fill_manual(values = c( "lightgreen","lightyellow"), #name = "Watering treatment", labels = c("Ample water","Water-restricted")
+                                                                                                                                                                      )
+
 
 library(rstatix)
 
@@ -119,31 +161,45 @@ parents1
 #not printed
 
 #to make the emmeans file
-modB<- lmer(SLA100 ~ genotype*mat_treat*treatment+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+modB<- lmer(S2_SLA ~ genotype*mat_treat*treatment+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
 fam_avg_linear<-emmeans(modB, ~genotype:mat_treat:treatment)
 fam_means_linear<-as.data.frame(fam_avg_linear)
-write.csv(fam_means_linear,file="LSmeans_SLA_2.csv")
-
-#read in emmeans
-LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
 
 #now we have lsmeans, but need to add corresponding elevation
 elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
 elev <- unique(elev) #calls unique rows 
-LSmeans_SLA <- merge(LSmeans_SLA,elev,by="genotype") #merge the dataframes
+LSmeans_SLA <- merge(fam_means_linear,elev,by="genotype") #merge the dataframes
 
 LSmeans_SLA$elev<-LSmeans_SLA$elevation/1000
-#LSmeans_SLA$emmean<-LSmeans_SLA$emmean*100
 
-write.csv(LSmeans_SLA,file="LSmeans_SLA_2.csv")
+write.csv(LSmeans_SLA,file="LSmeans_SLA_S2.csv")
 
 ```
 
 ```{r}
 #read in emmeans
-LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
+LSmeans_SLA <- read.csv("LSmeans_SLA_S2.csv", stringsAsFactors=TRUE)
 
-RC_SLA_means<- lm(emmean ~ elevation*treatment*mat_treat, data = LSmeans_SLA)
+
+
+hist(LSmeans_SLA$emmean)
+  
+SLAgga<-ggplot(LSmeans_SLA, aes(x = mat_treat, y = emmean, fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+gh_sla= ggplot(LSmeans_SLA, aes(x= elev,y= emmean, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("SLA CM3/g")+ scale_x_continuous("Source Elevation")  
+gh_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+RC_SLA_means<- lm(emmean ~ elevation+mat_treat+treatment, data = LSmeans_SLA)
 Anova(RC_SLA_means)
 plot(RC_SLA_means)
 
@@ -166,17 +222,46 @@ visreg(RC_SLA_means, overlay = FALSE, "elevation", by="mat_treat", type="conditi
 
 
 
-### Trichomes individual
+### Trichomes individual from season 1
 
 ```{r}
-RC_Tri<- glmer(trichomes ~ mat_treat*elev*treatment+S_init_size +(1|block),family = Gamma(link=log), data = gh2) 
+hist(gh2$trichomes)
+  
+SLAgga<-ggplot(gh2, aes(x = mat_treat, y = trichomes, fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("Trichomes") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+gh_sla= ggplot(gh2, aes(x=elev,y= trichomes, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Trichomes")+ scale_x_continuous("Source Elevation")  
+gh_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+gh2 $mat_herb<-interaction(gh2 $mat_treat, gh2 $treatment,sep = "_")
+
+RC_Tri<- glmer(trichomes ~ mat_herb*S_elev +(1|block)+(1|genotype),family = Gamma(link=log), data = gh2) 
 #had errors but this seems to work when i specify link=log
 #singular fit
+
+
+
 
 Anova(RC_Tri) # elev is sig, sig interaction btw mat_treat and elev
 plot (RC_Tri)
 
-visreg(RC_Tri, "elev", by="treatment",overlay = TRUE,type="conditional", scale = "response", 
+
+trichomes <-predictorEffect("S_elev",  partial.residuals=TRUE, mod = RC_Tri)
+
+plot(trichomes, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,200))
+
+
+visreg(RC_Tri, "S_elev", by="mat_herb",overlay = FALSE,type="conditional", scale = "response", 
        xlab="Elevation (m)", ylab="Trichome density", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(0.7,0.9))),
        line=list(col=grey(c(0,0.5))),
@@ -211,29 +296,33 @@ visreg(RC_Tri, "elev",  by="mat_treat", type="conditional", scale = "response",
 # not printed
 #to make the emmeans file
 # link log makes log output ( i think), changed to identity but have some warnings. needs the glmer control
-modC<- glmer(trichomes ~ mat_treat*genotype*treatment+(1|block),family = Gamma(link="identity"),  control=glmerControl(optimizer="bobyqa"), data = gh2) #s_initial size not sig, so not included
-Anova(modC)
-fam_avg_linear<-emmeans(modC, ~genotype:mat_treat:treatment)
-fam_means_linear<-as.data.frame(fam_avg_linear)
-write.csv(fam_means_linear,file="LSmeans_tri.csv")
+#modC<- glmer(trichomes ~ mat_treat*genotype*treatment+(1|block),family = Gamma(link="identity"),  control=glmerControl(optimizer="bobyqa"), data = gh2) #s_initial size not sig, so not included
+#Anova(modC)
+#fam_avg_linear<-emmeans(modC, ~genotype:mat_treat:treatment)
+#fam_means_linear<-as.data.frame(fam_avg_linear)
+#write.csv(fam_means_linear,file="LSmeans_tri.csv")
 
 #read in emmeans
-LSmeans_tri <- read.csv("LSmeans_tri.csv", stringsAsFactors=TRUE)
+#LSmeans_tri <- read.csv("LSmeans_tri_S1.csv", stringsAsFactors=TRUE)
 
 #now we have lsmeans, but need to add corresponding elevation
-elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
-elev <- unique(elev) #calls unique rows 
-LSmeans_tri <- merge(LSmeans_tri,elev,by="genotype") #merge the dataframes
+#elev <- gh2[c("genotype","elevation")] #make dataframe of genotypes and corresponding elev
+#elev <- unique(elev) #calls unique rows 
+#LSmeans_tri <- merge(LSmeans_tri,elev,by="genotype") #merge the dataframes
 
-LSmeans_tri$elev<-LSmeans_tri$elevation/1000
+#LSmeans_tri$elev<-LSmeans_tri$elevation/1000
 
-write.csv(LSmeans_tri,file="LSmeans_tri.csv")
+#write.csv(LSmeans_tri,file="LSmeans_tri.csv")
 ```
 
 ```{r}
 LSmeans_tri <- read.csv("LSmeans_tri.csv", stringsAsFactors=TRUE)
+LSmeans_tri $S_elev<-scale(LSmeans_tri$elevation,center=TRUE, scale=TRUE)
 
-RC_tri_means<- glm(emmean ~ mat_treat*elev*treatment, data = LSmeans_tri) 
+
+
+RC_tri_means<- glm(emmean ~ mat_treat+S_elev+treatment, data = LSmeans_tri) 
+
 Anova(RC_tri_means)
 plot(RC_tri_means)
 
@@ -266,7 +355,9 @@ visreg(RC_tri_means, overlay = FALSE, "elev", by="mat_treat", type="conditional"
 #read in emmeans. using lsmeans because its easier to see the graph
 LSmeans_SLA <- read.csv("LSmeans_SLA_2.csv", stringsAsFactors=TRUE)
 
-SLA <- lm(emmean ~ treatment*mat_treat, data = LSmeans_SLA)
+
+
+SLA <- lm(emmean ~ mat_treat*treatment, data = gh2)
 Anova (SLA)
 
 ##use this
@@ -444,8 +535,35 @@ ggplot(
 Individual 
 ```{r}
 
+gh_pf= ggplot(gh2, aes(x= elev,y= Overall_flowered, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Probability of flowering")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+gh_pf= ggplot(gh2, aes(x= elev,y= S2_flowered, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Probability of flowering")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+gh_pf= ggplot(subset(gh2, mat_treat!="Parent"), aes(x= elev,y= S2_flowered, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Probability of flowering")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+SLAgga<-ggplot(gh2, aes(x = mat_treat, y = Overall_flowered, fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("SLA CM3/g") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
 #looking at overall flowered
-mod_flower<- glmer(Overall_flowered~ elev*treatment*mat_treat+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
+mod_flower<- glmer(Overall_flowered~ elev*treatment+mat_treat*elev+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
 
 Anova(mod_flower) # all seperate factors are sig, sig interaction btw mat_treat and elev
 plot (mod_flower) #plot is strange, not sure if ok fit
@@ -635,12 +753,54 @@ LSmeans_surv <- read.csv("LSmeans_surv.csv", stringsAsFactors=TRUE)
 
 # Fecundity 
 individual
+
+```{r}
+gh_pf= ggplot(gh2, aes(x= elev,y= round(Overall_Mature_length_siliques), group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Fecundity(summed silique length)")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+SLAgga<-ggplot(gh2, aes(x = mat_treat, y = round(Overall_Mature_length_siliques), fill = treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal treatment")+ scale_y_continuous("Fecundity(summed silique length") +
+  geom_point(pch = 21, position = position_jitterdodge())
+SLAgga + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                           panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("No Herbivores", "Herbivorized", "Parent Control")) +  scale_fill_manual(values = c( "gold","purple"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+plot(gh2$Overall_Mature_length_siliques,gh2$S1_LAR3)
+
+herb <- filter(gh2,treatment!="Control")
+
+gh_pf= ggplot(herb, aes(x= (LAR_prop2),y= round(S2_Mature_length_siliques), group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Fecundity(summed silique length)")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c("purple"), name = "Herbivore treatment", labels = c("Herbivorized"))
+
+
+gh_pf= ggplot(gh2, aes(x= elev,y= S1_LAR3, group= treatment, 
+                               colour= treatment))+geom_point(size=5) + scale_y_continuous("Fecundity(summed silique length)")+ scale_x_continuous("Source Elevation")  
+gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
+
+
+
+
+
+```
+
+
+
 ```{r}
 #library(glmmTMB)
 
 #looking at overall
 
-#hurdle <- glmmTMB (Overall_Mature_silique_number ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
+hurdle <- glmmTMB (round(Overall_Mature_length_siliques) ~ treatment+mat_treat+elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment+mat_treat+elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
 
 diagnose(hurdle)
 
@@ -652,20 +812,31 @@ summary(hurdle) #zero inflated model is significant, but not sure if i am plotti
 fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle,component="zi")
 
 plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
-                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,25))
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1500))
+
+fruit <-predictorEffect("treatment",  partial.residuals=TRUE, hurdle,component="zi")
+
+plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, col="black"), ylim=c(0,1500))
+
 
 plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,25))
+
+
+
+
+
 
 ```
 
 ```{r}
-#library(glmmTMB)
+library(glmmTMB)
 
-#looking at season 2 silique length
+#looking at overll silique length
 
 #nothing is significant here..
 
-#hurdle2 <- glmmTMB (S2_Mature_length_siliques ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
+hurdle2 <- glmmTMB (Overall_Mature_length_siliques ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
 
 diagnose(hurdle2)
 
@@ -747,13 +918,13 @@ individual
 
 LAR_data <- subset(gh2, treatment == "Herbivorized")
 
-LAR_3 <- drop_na(LAR_data,LAR_prop2) #this removes the rows without LAR values
-LAR_3 <- dplyr::select(LAR_3, LAR_prop2, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
+LAR_3 <- drop_na(LAR_data,S1_LAR3) #this removes the rows without LAR values
+LAR_3 <- dplyr::select(LAR_3, S1_LAR3, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
 
 #response variable cant have zeros, so I added 0.0001 to every value
 
-LAR_3$LAR_prop2 <- LAR_3$LAR_prop2 + 0.0001
-gamlss_mod1<- gamlss (formula=LAR_prop2~elev*mat_treat+ S_init_size+ random(block)+random(genotype), family=BE, data= LAR_3)
+LAR_3$S1_LAR3 <- LAR_3$S1_LAR3/100
+gamlss_mod1<- gamlss (formula=S1_LAR3~elev*mat_treat+ S_init_size+ random(block)+random(genotype), family=BE, data= LAR_3)
 summary(gamlss_mod1)
 plot(gamlss_mod1)
 
@@ -794,6 +965,87 @@ visreg(gamlss_mod2, 'elev', by= "mat_treat", overlay = FALSE, type="conditional"
  
 
 
-
 ``` 
+
+```{r}
+
+
+h_lar= ggplot(LAR_3, aes(x= elev,y= S1_LAR3, group= mat_treat, 
+                               colour= mat_treat))+geom_point(size=5) + scale_y_continuous("Leaf Area Herbivorized",limits =c(0, 1))+ scale_x_continuous("Source Elevation")  
+h_lar + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x")# +scale_colour_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+
+
+
+
+
+ modA<- lmer(Overall_Mature_length_siliques~ S1_LAR3+ S_init_size+ (1|block)+(1|genotype),data= herb)
+ Anova(modA,type="III")
+ ##You can see here that the residuals aren't great
+ plot(modA)
+ 
+ 
+ 
+ 
+ visreg(modA, 'S1_LAR3', type="conditional", 
+       #scale = "response", 
+       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8))),
+       points=list(cex=1.5,col=grey(c(0,0.8)))) 
+ 
+ h_lar= ggplot(herb, aes(x=elevation,y= S1_Mature_length_siliques, group= mat_treat, 
+                               colour= mat_treat))+geom_point(size=5) + scale_y_continuous("Fecundity (Silique Length)",limits =c(0, 1000))+ scale_x_continuous("Leaf Area Herbivorized")  
+h_lar + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "purple", "purple", "purple"))#, name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+hurdle3 <- glmmTMB (round(Overall_Mature_length_siliques) ~ S1_LAR3+S_init_size  + (1| block)+(1|genotype), zi=~ S1_LAR3+S_init_size  + (1| block)+(1|genotype),data = herb ,family=truncated_nbinom2)
+
+diagnose(hurdle3)
+
+Anova(hurdle3,type="III", component="zi")
+
+summary(hurdle3)
+
+
+fruit2 <-predictorEffect("S1_LAR3",  partial.residuals=TRUE, hurdle3,component="zi")
+
+plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
+                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+
+
+#lmer model
+  modA<- lmer(Overall_flowered~ S1_LAR3+mat_treat+ S_init_size+ (1|block)+(1|genotype),data= herb)
+ Anova(modA,type="III")
+ ##You can see here that the residuals aren't great
+ plot(modA)
+
+ 
+ 
+ visreg(modA, 'elev', by= "mat_treat", overlay = FALSE, type="conditional", 
+       #scale = "response", 
+       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=grey(c(0,0.8))),
+       points=list(cex=1.5,col=grey(c(0,0.8)))) 
+ 
+ h_lar= ggplot(herb, aes(x=Overall_flowered,y= (S1_LAR3/100), group= mat_treat, 
+                               colour= mat_treat))+geom_point(size=5) + scale_y_continuous("Leaf Area Herbivorized",limits =c(0, 1))+ scale_x_continuous("Source Elevation")  
+h_lar + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "purple", "purple", "purple"))#, name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+
+```
+
+
+
+
 
