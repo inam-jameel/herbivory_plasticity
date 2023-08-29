@@ -1,4 +1,4 @@
-##### This R script contains pilot analyses of data from the 2022 growing season for the grasshopper experiment. We do not have final fitness data, so fecundity analyses should be treated as prpreliminary.
+##### This R script contains pilot analyses of data from the 2023 growing season for the grasshopper experiment. I havent included thefinal fitness data, so fecundity analyses should be treated as preliminary.
 
 
 #libraries
@@ -19,6 +19,9 @@ library(glmmTMB)
 library(bbmle)
 
 setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/field_2023_files/census_files")
+
+#for macbook air
+setwd("/Users/inam/OneDrive - University of Georgia/Inam_experiments/field_2023_files/census_files")
 
 #read in data 
 grasshopper <- read.csv("Grasshopper_26july23.csv")
@@ -262,19 +265,16 @@ LAR_prop2 + theme_bw() + theme(text = element_text(size=20),axis.line.x = elemen
 ## The most appropriate model for these proportional data is a zero-inflated beta regression. This is because we have values of 0, but no values of one (or we would need a zero-one inflated beta regression). The GAMLSS package in R can execute these models. This code fits data on a [0,1) interval, which is what we have.
 
 ##Gamlss models fail if there are any NA values in the entire dataset. So, I exclude NAs here
-grasshopper2 <- grasshopper1[c(1,4,5,7:13,36,48:49)]
- grasshopper2 $LAR_prop14<- grasshopper2 $LAR_census14/100
- grasshopper2$elev_km<-grasshopper2 $elevation/1000
+grasshopper1a <- grasshopper1[c(1,4,5,7:13,38,95:102)]
+grasshopper1a$elev_km<-grasshopper1a $elevation/1000
  
- grasshopper2 $trtherb<-interaction(grasshopper1 $Treatment, grasshopper2 $Herbivore,sep = "_")
- grasshopper2 $cage_block<-interaction(grasshopper1 $Cage, grasshopper2 $Block,sep = "_")
- 
- 
+grasshopper2a <- grasshopper2[c(1,4,5,7:13,38,95:102)]
+grasshopper2a$elev_km<-grasshopper2a $elevation/1000
 
 
 ##We can proceed to the zero inflated beta regression. The issue is that these models are complicated to explain. Given that the result is nearly the same as the lmer model above, I suggest that Lisa presents the results from the lmer model      
-      gamlss.model<- gamlss (formula=LAR_prop14~trtherb* elev_km+ random(cage_block)+random(Genotype), 
-         sigma.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype), nu.formula=LAR_prop14~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype),family=BEZI, data= grasshopper2)
+      gamlss.model<- gamlss (formula=LAR~trtherb* elev_km+ random(cage_block)+random(Genotype), 
+         sigma.formula=LAR~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype), nu.formula=LAR~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype),family=BEZI, data= grasshopper1a)
       summary(gamlss.model)
       
 
@@ -287,6 +287,24 @@ visreg(gamlss.model, overlay = TRUE, "elev_km", by="trtherb", type="conditional"
                  (c(0.99), alpha=0)
        ), band = TRUE, gg = TRUE,
 
+       #line=list(col=grey(c(0.2,0.6))),
+       points=list(cex=0.65,  pch=(19)))
+
+
+gamlss.model2<- gamlss (formula=LAR~trtherb* elev_km+ random(cage_block)+random(Genotype), 
+                       sigma.formula=LAR~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype), nu.formula=LAR~trtherb* elev_km*Herbivore+ random(cage_block)+random(Genotype),family=BEZI, data= grasshopper2a)
+summary(gamlss.model2)
+
+
+
+
+
+visreg(gamlss.model2, overlay = TRUE, "elev_km", by="trtherb", type="conditional", #scale = "response", 
+       xlab="Elevation (KM)", ylab="Leaf Area Herbivorized (Scaled)", partial=TRUE,
+       fill=list(col=grey
+                 (c(0.99), alpha=0)
+       ), band = TRUE, gg = TRUE,
+       
        #line=list(col=grey(c(0.2,0.6))),
        points=list(cex=0.65,  pch=(19)))
 
