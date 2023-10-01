@@ -29,14 +29,16 @@ library(emmeans)
 #library(optimx)
 
 
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/field/2023_files/census_files")
-
 ```
 
+setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/field/2023_files/census_files")
+setwd("/Users/inam/OneDrive - University of Georgia/Inam_experiments/Herbivory_data/field/2023_files/census_files")
 
 ## Schofield
 ```{r, include = FALSE}
 #### read in data ####
+
+setwd("/Users/inam/OneDrive - University of Georgia/Inam_experiments/Herbivory_data/field/2023_files/census_files")
 data<- read.csv("inam_schofield_092623.csv")
 
 #data<- filter(data,include == "1")
