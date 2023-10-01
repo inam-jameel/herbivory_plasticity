@@ -217,7 +217,7 @@ LAR_prop2 + theme_bw() + theme(text = element_text(size=20),axis.line.x = elemen
  modB<- lmer (LAR~elev_km*Treatment*Herbivore+(1|cage_block)+(1|Genotype),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=grasshopper2)
  Anova(modB)
  
- visreg(modB,overlay=T,"elev_km", by ="Herbivore")
+ visreg(modB,overlay=T,"Treatment" ,by="Herbivore")
  plot(predictorEffects(modB, ~ elev_km), type="response",partial.residuals=TRUE, confint=list(style="auto"), xlab="Population source elevation (Km)", ylab="Leaf area herbivorized",line=list(multiline=TRUE, lty=1:2,col=c("lightblue","darkred")))
  
  
