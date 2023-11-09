@@ -1,13 +1,13 @@
 ---
-title: "GH_2gen_2021"
+title: "Greenhouse Experiment"
 author: "Mohammad Inam Jameel"
-date: "4/12/2022"
+date: "11/9/2023"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "~/Desktop/Anderson_data/herbivory/data/greenhouse/")
+knitr::opts_knit$set(root.dir = "~/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/greenhouse/")
 ```
 
 
@@ -28,16 +28,13 @@ library(emmeans)
 library(visreg)
 library(fitdistrplus)
 library(gamlss)
-library(rjags)
-library(gamlss)
 library(effects)
 
  
-setwd("~/Desktop/Anderson_data/herbivory/data/greenhouse/")
-
+setwd("~/OneDrive - University of Georgia/Inam_experiments/Herbivory_data/greenhouse/")
 
 #read in data 
-gh2 <- read.csv("~/Desktop/Anderson_data/herbivory/data/greenhouse/gen2_GHSummary2022.csv")
+gh2 <- read.csv("gen2_GHSummary2022.csv")
 
 gh2 <- filter(gh2, Include == "yes" )
 
@@ -65,7 +62,8 @@ gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effec
 ## SLA individual for full dataset
 ```{r}
 #SLA for second season is S2_SLA
-#also have to filter for the indiv that we have appropriate values for SLA (gh2=filter(gh2,S2_include_SLA == 1)
+#also have to filter for the indiv that we have appropriate values for SLA 
+gh2=filter(gh2,S2_include_SLA == 1)
 
 
 hist(gh2$S2_SLA)
@@ -86,17 +84,10 @@ gh_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_l
                            panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "gold","purple","grey"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
 
 
-h_sla= ggplot(grasshopper, aes(x= elevation,y= SLA_rosette_2022, group= Treatment, 
-                               colour= Treatment))+geom_point(size=5) + scale_y_continuous("SLA CM3/g")+ scale_x_continuous("Source Elevation")  
-h_sla + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
-                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="lm",size=1.6, formula=y~x)+facet_wrap(~ Herbivore, scales="free_x") +scale_colour_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
 
 
 
-
-
-RC_SLA<- lmer(S2_SLA ~ treatment+elev+mat_treat+S_init_size +(1|block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
+RC_SLA<- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size +(1|block)+(1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
 Anova(RC_SLA)
 plot (RC_SLA)
 
@@ -112,6 +103,14 @@ visreg(RC_SLA,overlay = TRUE, "elev", by="mat_treat",type="conditional", scale =
       #line=list(col=grey(c(0,0.5))),
        #points=list(cex=1.5,col=grey(c(0.2,0.8)))
       )  
+
+visreg(RC_SLA,"elev", by="treatment", overlay=TRUE,   scale = "response", xlab="Day of snowmelt (ordinal day)", ylab="Final size (leaf number)", partial=TRUE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
+
+library(vioplot)
+
+vioplot(S2_SLA ~ treatment, data= gh2, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255"), col=c("#6699cc","#882255"), ylab="Relative growth rate", xlab="Minimum temperature (°C)")+stripchart(S2_SLA ~ treatment, data= gh2,  method = "jitter", col = alpha("black", 0.2), pch=16 
+                                                                                                                                                                                                                                                                                      ,vertical = TRUE, add = TRUE)
+
 
 
 ```
