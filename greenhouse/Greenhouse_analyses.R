@@ -85,11 +85,10 @@ hist(gh2$S1_LAR5_prop)
 gh2$S1_LAR13_prop<- gh2$S1_LAR13/100 #last in S1
 hist(gh2$S1_LAR13_prop) 
 
-
-
 ##Some of your variables are being read as characters not factors. Let's fix that
 gh2$genotype<-as.factor(gh2$genotype)
 gh2$treatment<-as.factor(gh2$treatment)
+gh2$exp_ID<-as.factor(gh2$exp_ID)
 gh2$block<-as.factor(gh2$block)
 gh2$mat_treat<-as.factor(gh2$mat_treat)
 gh2$mat_exp_ID <-as.factor(gh2$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
@@ -101,7 +100,7 @@ gh2 $treat_mat<-interaction(gh2 $treatment, gh2 $mat_treat,sep = "_")
 #### 1.SLA for greenhouse experiment #####
 #*******************************************************************************
 
-#### SLA individual for full dataset ####
+### SLA individual for full dataset ###
 
 SLA_S1 =ggplot(gh2, aes(x= elevation,y= S1_SLA, color = treat_mat))+ geom_point(size=3.5)+ ggtitle("SLA season 1 by Souce Elevation")+scale_x_continuous("Source Elevation")+ scale_y_continuous("SLA") +theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="lm", formula=y~x,  se=TRUE, size=1.6)
 SLA_S1
@@ -184,7 +183,7 @@ anova(RC_SLA, RC_SLAnoblock)
 
 #converting wide to long for repeated measures
 
-SLA_data<- gh2 %>% pivot_longer(cols=c('S2_SLA', 'S1_SLA'),
+SLA_data<- gh2 %>% pivot_longer(cols=c('S2_SLA_include', 'S1_SLA_include'),
                  names_to='year',
                  values_to='SLA')
 
@@ -192,19 +191,22 @@ SLA_data <- dplyr::select(SLA_data, SLA, elev, genotype, treatment, mat_treat, e
 
 ggplot(SLA_data, aes(x= SLA))+ geom_histogram(color="black", fill="white")+ facet_grid(treatment ~  .)
 
-SLA_RM <- lmer(SLA ~ treatment*elev*mat_treat*year 
-                     +(1|block)
-                     +(1|genotype)
-                    +(1|exp_ID)
-                     ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
+SLA_RM <- lmer(SLA ~ treatment*mat_treat*elev+year +(1|exp_ID),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
 
 plot(SLA_RM)
 
 Anova(SLA_RM)
 
-visreg(SLA_RM,"elev", by="treatment", overlay=TRUE,   scale = "response", xlab="Day of snowmelt (ordinal day)", ylab="Final size (leaf number)", partial=FALSE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
+visreg(SLA_RM,"elev", by="treatment", overlay=TRUE,   scale = "response", xlab="Elevation", ylab="SLA CM3/g ", partial=FALSE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
+
+#Testing the random effect of exp_ID
+
+SLAnogeno <- lm(SLA ~ treatment*mat_treat*elev+year 
+                 # +(1|exp_ID)
+                     ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
 
 
+anova(SLA_RM, SLAnogeno)
 
 #*******************************************************************************
 #### 2.LAR for greenhouse experiment #####
@@ -401,6 +403,56 @@ visreg(modB, 'elev', by= "mat_treat", overlay = TRUE, type="conditional",
        points=list(cex=1.5,col=c("#6699cc","#882255","grey")))
 
 
+#repeated measures 
+
+LAR_data<- herb %>% pivot_longer(cols=c('S1_LAR1_prop', 'S1_LAR3_prop', 'S1_LAR13_prop','S2_LAR1_prop', 'S2_LAR2_prop'),
+                                 names_to='exposure',
+                                 values_to='LAR')
+
+LAR_data <- dplyr::select(LAR_data, LAR, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, exposure)
+
+LAR_data$census<-LAR_data$exposure
+LAR_data$census[LAR_data$census == "S1_LAR1_prop"] <- "1"
+LAR_data$census[LAR_data$census == "S1_LAR3_prop"] <- "2"
+LAR_data$census[LAR_data$census == "S1_LAR13_prop"] <-"3"
+LAR_data$census[LAR_data$census == "S2_LAR1_prop"] <- "4"
+LAR_data$census[LAR_data$census == "S2_LAR2_prop"] <- "5"
+
+ggplot(LAR_data, aes(x= LAR))+ geom_histogram(color="black", fill="white")+ facet_grid(census ~  .)
+
+LAR_data1 <- drop_na(LAR_data,LAR) 
+
+gamlss_mod<- gamlss (formula=LAR~elev*mat_treat+census +random(block)+random(genotype)+random(exp_ID),family=BEINF(mu.link = "identity", sigma.link = "log"), data=LAR_data1,control = gamlss.control(n.cyc = 500))
+
+summary(gamlss_mod)
+plot(gamlss_mod)
+Anova(gamlss_mod)
+
+pred<-predict(gamlss_mod, type="response", what="mu")
+plot_data <- data.frame( predicted_data = pred, actual_data= grasshopper2a$LAR )
+
+grasshopper2b <- cbind(LAR_data1,pred)
+
+
+ggplot(LAR_data1, aes(x = elev, y = pred, color = mat_treat))+
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(x = "Source elevation", y = "Leaf Area Removed", color = "mat_treat") + 
+  theme_bw() + scale_color_manual(values=c("#009E73","#0072B2","#CC79A7"))
+
+
+visreg(gamlss_mod, 'elev')
+
+visreg(gamlss_mod, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
+       #scale = "response", 
+       xlab="Source Elevation (Km)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col="blue"),
+       line=list(col=c("#6699cc","#882255","grey")),
+       points=list(cex=1.5,col=c("#6699cc","#882255","grey"))) 
+
+visreg(gamlss_mod, 'elev', type="conditional",
+       #scale = "response", 
+       xlab="Source elevation (Km)", ylab="Percentage leaf area herbivorized", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5)
 
 
 #*******************************************************************************
@@ -594,24 +646,24 @@ gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_li
 
 vioplot(round(Overall_Mature_length_siliques) ~ treatment, data= repro, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255","grey"), col=c("#6699cc","#882255","grey"), ylab="Fecundity(summed silique length)", xlab="Herbivore treatment")+stripchart(round(Overall_Mature_length_siliques) ~ mat_treat, data= gh2,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
 
-
+#glmmtmb
 mod_fecundity_avgLAR <- glmmTMB (Overall_Mature_length_siliques ~ LAR_avg_prop*elev*mat_treat  + (1| block)+(1|genotype), family=Gamma(link="log"),data = repro)
 
 diagnose(mod_fecundity_avgLAR)
 
-Anova(hurdle,type="III")
+Anova(mod_fecundity_avgLAR,type="III")
 
-summary(hurdle)
+summary(mod_fecundity_avgLAR)
 
 ## This is just another approach to visualizing these patterns:
-fecundB<- glmer(Overall_Mature_length_siliques ~   LAR_avg_prop*elev*mat_treat+ (1|block) +(1|genotype), data= repro,family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
-Anova(fecundB,type="III")
+mod_fecundity_avgLARb<- glmer(Overall_Mature_length_siliques ~   LAR_avg_prop*elev*mat_treat+ (1|block) +(1|genotype), data= repro,family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+Anova(mod_fecundity_avgLARb,type="III")
 
-fecundmod <-predictorEffect("elev",  partial.residuals=TRUE, fecundB)
-plot(fecundmod, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,600))
+fecundmodb <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_avgLARb)
+plot(fecundmodb, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
 
-visreg2d(fecundB,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,750, by=50))
+visreg2d(mod_fecundity_avgLARb,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,750, by=50))
 
 
 fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle)
@@ -627,80 +679,34 @@ visreg2d(hurdle,"elev","LAR_max_prop", scale = "response", xlab="Source elevatio
 
 
 
-#library(glmmTMB)
+#looking at max LAR
 
-#looking at overall
+mod_fecundity_maxLAR  <- glmmTMB (Overall_Mature_length_siliques ~ LAR_max_prop*elev*mat_treat  + (1| block)+(1|genotype) , family=Gamma(link="log"),data = repro)
 
-hurdle <- glmmTMB (Overall_Mature_length_siliques ~ LAR_max_prop*elev*mat_treat  + (1| block)+(1|genotype), zi=~ LAR_max_prop*elev*mat_treat  + (1| block)+(1|genotype),data = gh2)
+Anova(mod_fecundity_maxLAR,type="III")
 
-hurdle <- glmmTMB (Overall_Mature_length_siliques ~ LAR_max_prop*elev*mat_treat  + LAR_max_prop*I(elev^2)*mat_treat +(1| block)+(1|genotype), zi=~ LAR_max_prop*elev*mat_treat  + LAR_max_prop*I(elev^2)*mat_treat (1| block)+(1|genotype),data = gh2)
-
-
-diagnose(hurdle)
-
-Anova(hurdle,type="III", component="zi")
-
-summary(hurdle) #zero inflated model is significant, but not sure if i am plotting it?
+summary(mod_fecundity_maxLAR) 
 
 
-fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle,component="zi")
+mod_fecundity_maxLARb<- glmer(Overall_Mature_length_siliques ~   LAR_max_prop*elev*mat_treat+ (1|block) +(1|genotype), data= repro,family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+Anova(mod_fecundity_maxLARb,type="III")
 
-plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
-                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1500))
-
-visreg(hurdle,"elev", by="mat_treat", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-
-library(RColorBrewer)
-visreg2d(hurdle,"elev","LAR_max_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,500, by=50))
-
-
-
-
-library(glmmTMB)
-
-#looking at overll silique length
-
-
-hurdle2 <- glmmTMB (Overall_Mature_length_siliques ~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype), zi=~ treatment*mat_treat*elev+S_init_size  + (1| block)+(1|genotype),data = gh2 ,family=truncated_nbinom2)
-
-diagnose(hurdle2)
-
-Anova(hurdle2,type="III", component="zi")
-
-summary(hurdle2)
-
-
-fruit2 <-predictorEffect("elev",  partial.residuals=TRUE, hurdle2,component="zi")
-
-plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=FALSE, #lty=2:1,
-                                                                                                  col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
-
-plot(fruit2, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1, col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
+fecundmodb <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_avgLARb)
+plot(fecundmodb, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
 
 
 
 
 
-modC<- lmer(Overall_Mature_length_siliques~ LAR_max_prop+mat_treat+elev+ (1|block)+(1|genotype),data= herb)
-Anova(modC,type="III")
-##You can see here that the residuals aren't great
-plot(modA)
-
-hist(herb$Overall_Mature_length_siliques)
-
-
-visreg(modC, 'LAR_max_prop', by= "mat_treat", overlay = TRUE, type="conditional", 
+visreg(mod_fecundity_maxLARb, 'LAR_max_prop', by= "mat_treat", overlay = TRUE, type="conditional", 
        scale = "response", 
-       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
+       xlab="Percentage leaf area herbivorized (%)", ylab="Fecundity", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
        line=list(col=c("#6699cc","#882255","grey")),
        points=list(cex=1.5,col=c("#6699cc","#882255","grey"))) 
 
 
-
-
-reproLAR =filter(LAR_data, Overall_flowered== 1)
 
 
 #converting wide to long for repeated measures
