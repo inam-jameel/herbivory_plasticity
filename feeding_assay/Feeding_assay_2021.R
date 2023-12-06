@@ -1,3 +1,36 @@
+######## PROJECT: feeding assay experiment: Fitness and phenotypes in response to herbivory
+#### PURPOSE:Examine LAR in response to maternal herbivory treatment.
+#### AUTHOR: Inam Jameel
+# AUTHOR: Inam Jameel
+#### DATE LAST MODIFIED: 4 Dec 23
+
+# remove objects and clear workspace
+rm(list = ls(all=TRUE))
+
+
+#require packages
+require(lme4) #for running linear mixed models
+require(ggplot2) #for plotting 
+require(visreg) # for plotting
+require(car) # to run ANOVA on model output
+require(plyr) # for data wrangling
+require(dplyr) # for data wrangling
+require(tidyr) # for data wrangling
+require(effects) # for plotting
+require(emmeans) #for plotting
+require(glmmTMB) # for running survival model, have to load twice
+require(gamlss) # for running phenology model
+require(broom.mixed) #for making tables
+require(multcomp) #for pairwise comparisons
+require(vioplot) #for violin plots
+
+
+# set working directory
+
+setwd("~/OneDrive - University of Georgia/Inam_experiments/Herbivory_data/feeding_assay/Feeding_trial_spring2021")  #this is where you specify the folder where you have the data on your computer
+
+
+
 library(dplyr)
 library(ggplot2)
 library(nlme)
@@ -12,8 +45,6 @@ library(visreg)
 library(fitdistrplus)
 library(gamlss)
 library(effects)
-
-setwd("~/Desktop/Anderson_data/herbivory/data/feeding_assay/Feeding_trial_spring2021")
 
 #import data
 Feeding_trial <- read.csv("Feeding_trialNov2021a.csv")
@@ -40,22 +71,34 @@ Feeding_trial$mat_exp_ID <-as.factor(Feeding_trial$mat_exp_ID) #need to include 
 
 #### LAR ####
 #looking at LAR by elevation
-plot(Feeding_trial$elev, Feeding_trial$LAR, xlab="elev", ylab="LAR")
+
+data_LAR <- dplyr::select(Feeding_trial, LAR, elev, genotype, mat_treat, Exp_ID, time, batch,mat_exp_ID,S_weight)
+data_LAR <- drop_na(data_LAR,LAR) #this removes the rows without LAR values
+
+plot(data_LAR$elev, data_LAR$LAR, xlab="elev", ylab="LAR")
+
+ggplot(data_LAR, aes(x= LAR))+ geom_histogram(color="black", fill="white")
+
+assayLAR =ggplot(data_LAR, aes(x= elev,y= LAR,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
+assayLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255"))+
+  geom_smooth(method="lm",se=FALSE,  size=1)
 
 
-#gamlss model, need to remove NAs
-data_LAR <- drop_na(Feeding_trial,LAR) #this removes the rows without LAR values
-data_LAR <-na.omit(data_LAR)
+gamlss_mod1<- gamlss (formula=LAR~time+elev*mat_treat+ random(genotype)+ random(batch)+ random(mat_exp_ID), family=BEINF, data= data_LAR)
+
+plot(gamlss_mod1)
+
+Anova(gamlss_mod1)
 
 
-gamlss_mod1<- gamlss (formula=LAR~S_weight+elev*mat_treat+I(elev^2)*mat_treat+ random(genotype)+ random(batch)+random(mat_exp_ID), family=BEINF, data= data_LAR)
-
-visreg(gamlss_mod1, 'elev', by= "mat_treat", overlay = FALSE, type="conditional", 
+visreg(gamlss_mod1, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
        #scale = "response", 
        xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
        line=list(col=grey(c(0,0.8))),
        points=list(cex=1.5,col=grey(c(0,0.8)))) 
+
+gamlss.modelB<- gamlss (formula= LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+ random(genotype)+ random(batch)+random(mat_exp_ID), nu.formula=LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+random(genotype)+random(batch)+random(mat_exp_ID), tau.formula=LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+ random(batch)+random(genotype)+random(mat_exp_ID), family=BEINF, data= data_LAR) #BEINF family 
 
 gamlss.modelB<- gamlss (formula= LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+ random(genotype)+ random(batch)+random(mat_exp_ID), nu.formula=LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+random(genotype)+random(batch)+random(mat_exp_ID), tau.formula=LAR ~ S_weight + time+elev*mat_treat+I(elev^2)*mat_treat+ random(batch)+random(genotype)+random(mat_exp_ID), family=BEINF, data= data_LAR) #BEINF family 
 
@@ -160,7 +203,7 @@ visreg(mod_1a, overlay = FALSE, "elev", by="mat_treat", type="conditional", #sca
        #line=list(col=grey(c(0.2,0.6))),
        points=list(cex=0.65,  pch=(19)))
 
-mod_1b <- gam(emmean ~mat_treat+s(elev_km, by=mat_treat)+s(genotype,bs="re"),data= LSmeans_LAR , method="REML")
+mod_1b <- gam(emmean ~mat_treat+s(elev, by=mat_treat)+s(genotype,bs="re"),data= LSmeans_LAR , method="REML")
 #error term, model has more coeff than data
 
 
@@ -191,6 +234,9 @@ plot(mod_1a,pages=1,scheme=1,unconditional=TRUE)
 plot(mod_1a,pages=1,scheme=1,residuals=TRUE,unconditional=TRUE) 
 summary(mod_1a)
 plot(mod_1a, shade = TRUE, pages = 1, scale = 0)
+
+
+
 
 
 ##lsmeans for RGR
