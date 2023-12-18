@@ -2,7 +2,7 @@
 #### PURPOSE:Examine LAR in response to maternal herbivory treatment.
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 4 Dec 23
+#### DATE LAST MODIFIED: 14 Dec 23
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -34,6 +34,7 @@ Feeding_trial <- read.csv("Feeding_trialNov2021a.csv")
 
 ##Convert elevation to km (it helps with model convergence)
 Feeding_trial$elev<-Feeding_trial$elevation/1000
+Feeding_trial$mat_avgLAR<-Feeding_trial$mat_avgLAR/100
 Feeding_trial$S_weight<-scale(Feeding_trial$ini_insect_weight.mcg.,center=TRUE, scale=TRUE)
 Feeding_trial$time<-scale(Feeding_trial$elapsed_time,center=TRUE, scale=TRUE) #need to include elapsed time in the models
 
@@ -62,6 +63,10 @@ plot(Feeding_trial$time_end, Feeding_trial$LAR, xlab="Time", ylab="LAR") #lower 
 
 plot(Feeding_trial$RGR, Feeding_trial$LAR, xlab="RGR", ylab="LAR")
 
+print(cor(Feeding_trial$RGR, Feeding_trial$LAR, use="complete.obs"))
+test <- cor.test(Feeding_trial$RGR, Feeding_trial$LAR)
+test
+
 plot(Feeding_trial$elev, Feeding_trial$RGR, xlab="elev", ylab="RGR")
 
 plot(Feeding_trial$ini_insect_weight.mcg., Feeding_trial$LAR, xlab=" inital weight", ylab="RGR")
@@ -77,7 +82,7 @@ plot(Feeding_trial$time_end, Feeding_trial$LAR, xlab="Time", ylab="RGR") #lower 
 #### LAR ####
 #looking at LAR by elevation
 
-data_LAR <- dplyr::select(Feeding_trial, LAR, elev, genotype, mat_treat, Exp_ID, time, batch,mat_exp_ID,S_weight,ini_insect_weight.mcg.)
+data_LAR <- dplyr::select(Feeding_trial, LAR, elev, genotype, mat_treat, Exp_ID, time, batch,mat_exp_ID,S_weight,ini_insect_weight.mcg.,mat_avgLAR)
 data_LAR <- drop_na(data_LAR,LAR) #this removes the rows without LAR values
 
 
@@ -96,8 +101,60 @@ assayLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x 
   geom_smooth(method="lm",se=FALSE,  size=1,formula=y~poly(x,2))+facet_wrap(~ mat_treat, scales="free_x")
 
 
+#this is the beta transformation, which transforms all values of 0 to a small value.
 
-gamlss_mod1<- gamlss (formula=LAR~S_weight+time+elev*mat_treat+random(batch)+random(genotype)+ random(mat_exp_ID),family=BEINF(mu.link = "identity", sigma.link = "log"), data=data_LAR,control = gamlss.control(n.cyc = 500))
+#Reference: Smithson M, Verkuilen J (2006). "A Better Lemon Squeezer? Maximum-Likelihood Regression with Beta-Distributed Dependent Variables." Psychological Methods, 11 (1), 54–71.
+
+n<-nrow(data_LAR)
+
+data_LAR $y_beta<- (data_LAR $LAR*(n-1) + 0.5)/n
+
+hist(data_LAR $y_beta)
+
+#You can check that you no longer have zero values (or values of 1, but I doubt that would be true with your data.
+
+min(data_LAR $y_beta)
+
+max(data_LAR $y_beta)
+
+
+
+#Then, the analysis is:
+library(betareg)
+
+beta_model<- betareg ( y_beta ~elev*mat_avgLAR+batch+ini_insect_weight.mcg.+time, data=data_LAR)
+Anova(beta_model,type="III")
+plot(beta_model)
+
+
+visreg(beta_model, "elev", by="mat_avgLAR", overlay=TRUE, scale="response")
+
+visreg(beta_model, 'elev', by= "mat_avgLAR", overlay = TRUE, type="conditional", 
+       scale = "response", 
+       xlab="Source Elevation (Km)", ylab="Damage by herbivores (beta transformation)", partial=FALSE,# cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(1), alpha=0.1)),
+       line=list(col=c("#6699cc","#882255","grey")),
+       points=list(cex=1.5,col=c("#6699cc","#882255",""))) 
+
+
+beta_modelquad<- betareg ( y_beta ~elev*mat_avgLAR+I(elev^2)*mat_avgLAR+batch+ini_insect_weight.mcg.+time, data=data_LAR)
+Anova(beta_model,type="III")
+plot(beta_model)
+
+
+visreg(beta_modelquad, "elev", by="mat_avgLAR", overlay=TRUE, scale="response")
+
+visreg(beta_modelquad, 'elev', by= "mat_avgLAR", overlay = TRUE, type="conditional", 
+       scale = "response", 
+       xlab="Source Elevation (Km)", ylab="Damage by herbivores (beta transformation)", partial=FALSE,# cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(1), alpha=0.1)),
+       line=list(col=c("#6699cc","#882255","grey")),
+       points=list(cex=1.5,col=c("#6699cc","#882255",""))) 
+
+
+gamlss_mod1<- gamlss (formula=y_beta~S_weight+time+elevmat_treat+random(batch)+random(genotype)+ random(mat_exp_ID),family=BE, data=data_LAR,control = gamlss.control(n.cyc = 500))
+
+
 
 plot(gamlss_mod1)
 
@@ -168,7 +225,7 @@ visreg(gamlss.modelC, 'elev', by= "mat_treat", overlay = TRUE, type="conditional
 
 
 
-##For a moment, let's treat LAR as a normal variable and run a linear mixed model
+#lmer model
 
 modA<- lmer (LAR~elev*mat_treat+I(elev^2)*mat_treat+S_weight+(1|batch)+(1|genotype/mat_exp_ID),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=data_LAR)
 
@@ -182,13 +239,13 @@ plot(model1, lwd=2,xlab="Elevation", ylab="LAR", pch=19, type="response",lines=l
 
 # Generalized additive model
 library(mgcv)
-mod_1a <- gam(LAR ~mat_treat+ini_insect_weight.mcg.+s(elev, by=mat_treat)+s(genotype,bs="re")+s(batch,bs="re"),data= data_LAR, method="REML")
+mod_1a <- gam(LAR ~mat_treat+ini_insect_weight.mcg.+s(elev, by=mat_avgLAR )+s(genotype,bs="re")+s(batch,bs="re"),data= data_LAR, method="REML")
 
 plot(mod_1a,pages=1,scheme=1,residuals=TRUE,unconditional=TRUE) 
 plot(mod_1a, shade = TRUE, pages = 1, scale = 0)
 summary(mod_1a) #batch is significant here.. 
 
-visreg(mod_1a, overlay = FALSE, "elev", by="mat_treat", type="conditional", #scale = "response", 
+visreg(mod_1a, overlay = FALSE, "elev", by="mat_avgLAR", type="conditional", #scale = "response", 
        xlab="Elev", ylab="LAR", partial=TRUE,
        fill=list(col="light grey"
                  #(c(0.99), alpha=0)
@@ -202,26 +259,31 @@ visreg(mod_1a, overlay = FALSE, "elev", by="mat_treat", type="conditional", #sca
 
 #looking at RGR by elevation
 
-data_RGR <- dplyr::select(Feeding_trial, LAR, RGR, elev, genotype, mat_treat, Exp_ID, time, batch,mat_exp_ID,S_weight,ini_insect_weight.mcg., final_insect_weight)
+data_RGR <- dplyr::select(Feeding_trial, LAR, RGR, elev, genotype, mat_treat, Exp_ID, time, batch,mat_exp_ID,S_weight,ini_insect_weight.mcg., final_insect_weight,mat_avgLAR)
 
-data_RGR <- drop_na(data_RGR,RGR) #this removes the rows without LAR values
+data_RGR <- drop_na(data_RGR,RGR) #this removes the rows without RGR values
+data_RGR <- drop_na(data_RGR,LAR) #this removes the rows without LAR values
+
 
 ggplot(data_RGR, aes(x= RGR))+ geom_histogram(color="black", fill="white")
 
-  
-gamlss_mod4<- gamlss (formula=RGR~S_weight+time+elev*mat_treat+random(batch)+random(genotype)+ random(mat_exp_ID), data=data_RGR,control = gamlss.control(n.cyc = 500))
+#gamlss model
+gamlss_rgr<- gamlss (formula=RGR~elev+mat_avgLAR+random(batch)+random(genotype)+ random(mat_exp_ID), data=data_RGR,control = gamlss.control(n.cyc = 500))
 
 plot(gamlss_mod4)
 summary(gamlss_mod4)
 
 
 
+#lmer model
+RGR <-lmer (RGR~ elev+mat_avgLAR +time
+            +(1|genotype)
+            +(1|batch)
+            +(1|mat_exp_ID)
+            , data = data_RGR,
+            control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 
-# initial insect weight,time was significant, elev2 is not significant
-
-mod_1<- lmer(RGR ~ elev*mat_treat +time+S_weight+ (1|genotype) +(1|batch), control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = data_RGR)
-Anova(mod_1,type="III")
-plot(mod_1)
+Anova(RGR,type="III")
 
 
 ##Generalized additive model
@@ -234,35 +296,6 @@ plot(mod_1a,pages=1,scheme=1,residuals=TRUE,unconditional=TRUE)
 summary(mod_1a)
 plot(mod_1a, shade = TRUE, pages = 1, scale = 0)
 
-
-
-
-
-##lsmeans for RGR
-modF<- lmer(RGR ~ genotype*mat_treat+ini_insect_weight.mcg. +(1|batch),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = Feeding_trial)
-
-fam_avg_linear<-emmeans(modF, ~genotype:mat_treat)
-fam_means_linear<-as.data.frame(fam_avg_linear)
-
-write.csv(fam_means_linear,file="LSmeans_RGR.csv")
-#manually added the elevation to the file for the genos
-
-LSmeans_RGR <- read.csv("LSmeans_RGR.csv", stringsAsFactors=TRUE)
-LSmeans_RGR$elev_km<-LSmeans_RGR$elevation/1000
-LSmeans_RGR <- subset(LSmeans_RGR, mat_treat!="neg_cont" & mat_treat!="post_cont")#gets rid of the postive and neg control rows
-
-modG<- lm(emmean ~ elevation,data=LSmeans_RGR)
-
-visreg(modG,"elev_km", type="contrast", scale = "response", xlab=" Source Elevation (km)", ylab="Insect Relative Growth Rate", line=list(col="black"), points=list(cex=1, col="black", pch=16), partial=TRUE)
-
-modA<- lmer (emmean~elev_km*mat_treat+(1|genotype),control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), data=LSmeans_RGR)
-Anova(modA,type="III")
-summary(modA)
-plot(modA)
-
-model1 <-predictorEffect("elev_km",  partial.residuals= TRUE, modA)
-plot(model1, lwd=2,xlab="Elevation", ylab="LAR", pch=19, type="response",lines=list(multiline=FALSE,  col="black"), 
-     partial.residuals=list(smooth= TRUE, pch=19, col="black"))
 
 
 #Ploting RGR
