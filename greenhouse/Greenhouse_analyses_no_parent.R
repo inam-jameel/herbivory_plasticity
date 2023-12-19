@@ -1,5 +1,5 @@
 ######## PROJECT: Greenhouse experiment: Fitness and phenotypes in response to herbivory
-#### PURPOSE:Examine fitness and traits in response to herbivory treatment.
+#### PURPOSE:Examine fitness and traits in response to herbivory treatment, removed the data for the grandparental generation
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
 #### DATE LAST MODIFIED: 18 Dec 23
@@ -32,7 +32,7 @@ library(RColorBrewer) #for 3d visreg plots
 setwd("~/OneDrive - University of Georgia/Inam_experiments/Herbivory_data/greenhouse/")  #this is where you specify the folder where you have the data on your computer
 
 #read in data 
-gh2 <- read.csv("gen2_GHSummary2022.csv")
+gh2 <- read.csv("gen2_GHSummary2022_no_parent.csv")
 
 gh2 <- filter(gh2, Include == "yes" )
 
@@ -117,79 +117,6 @@ SLA_S1
 SLA_S2 =ggplot(gh2, aes(x= elevation,y= S2_SLA, color = treat_mat))+ geom_point(size=3.5)+ ggtitle("SLA season 2 by Souce Elevation")+scale_x_continuous("Source Elevation")+ scale_y_continuous("SLA") +theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="lm", formula=y~x,  se=TRUE, size=1.6)
 SLA_S2
 
-#SLA for first season is S1_SLA
-#also have to filter for the indiv that we have appropriate values for SLA 
-SLA_data_S1=filter(gh2,S1_include_SLA == 1)
-
-hist(SLA_data_S1$S1_SLA)
-
-simple_SLA<- lmer(S1_SLA ~ treatment*mat_treat+elev+(1|block)+(1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data_S1)
-Anova(simple_SLA)
-plot (simple_SLA)
-
-visreg(simple_SLA,"mat_treat", by="treatment", overlay=TRUE,   scale = "response", xlab="Maternal environment", ylab="SLA", partial=TRUE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-summary(glht(simple_SLA, linfct = mcp(mat_treat = "Tukey")))  
-
-SLAmeans <- gh2 %>% 
-  group_by(treatment) %>%
-  get_summary_stats(S2_SLA, type="mean_se")
-SLAmeans
-
-vioplot(S1_SLA ~ treatment, data= SLA_data_S1, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255"), col=c("#6699cc","#882255"), ylab="SLA CM3/g", xlab="Herbivore treatment")+stripchart(S2_SLA ~ treatment, data= gh2,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-vioplot(S1_SLA ~ mat_treat, data= SLA_data_S1, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255","grey"), col=c("#6699cc","#882255","grey"), ylab="SLA CM3/g", xlab="Maternal herbivore treatment")+stripchart(S1_SLA ~ mat_treat, data= SLA_data_S1,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-emmip(simple_SLA, ~ treatment, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+  ylab("Probability of survival")+ xlab("Minimum temperature in treatment")+scale_colour_grey()+ ylim(150,250)+ theme(legend.position = c(0.90, 0.85))
-
-
-
-#SLA for second season is S2_SLA
-#also have to filter for the indiv that we have appropriate values for SLA 
-SLA_data_S2=filter(gh2,S2_include_SLA == 1)
-
-
-hist(SLA_data_S2$S2_SLA)
-
-simple_SLA<- lmer(S2_SLA ~ treatment*mat_treat+elev+(1|block)+(1|genotype),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data_S2)
-Anova(simple_SLA)
-plot (simple_SLA)
-
-visreg(simple_SLA,"elev", by="treatment", overlay=TRUE,   scale = "response", xlab="Day of snowmelt (ordinal day)", ylab="Final size (leaf number)", partial=TRUE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-summary(glht(simple_SLA, linfct = mcp(treatment = "Tukey"))) 
-
-SLAmeans <- gh2 %>% 
-  group_by(treatment) %>%
-  get_summary_stats(S2_SLA, type="mean_se")
-SLAmeans
-
-vioplot(S2_SLA ~ treatment, data= SLA_data_S2, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255","grey"), col=c("#6699cc","#882255","grey"), ylab="SLA CM3/g", xlab="herbivore treatment")+stripchart(S2_SLA ~ treatment, data= SLA_data_S1,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-
-
-
-#Testing the random effect of genotype
-
-RC_SLAnogeno <- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size 
-                     +(1|block)
-                     #+(1|genotype)
-                     ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
-
-
-anova(RC_SLA, RC_SLAnogeno)
-
-##Testing the random effect of block (tray)
-RC_SLAnoblock <- lmer(S2_SLA ~ treatment*elev*mat_treat+S_init_size 
-                      #+(1|block)
-                      +(1|genotype)
-                      ,control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = gh2)
-
-anova(RC_SLA, RC_SLAnoblock)
-
-
 #converting wide to long for repeated measures
 
 SLA_data<- gh2 %>% pivot_longer(cols=c('S2_SLA_include', 'S1_SLA_include'),
@@ -203,20 +130,25 @@ SLA_data$season<-as.numeric(SLA_data$season)
 
 ggplot(SLA_data, aes(x= SLA))+ geom_histogram(color="black", fill="white")+ facet_grid(treatment ~  .)
 
-SLA_RM <- lmer(SLA ~ LAR_avg_prop*mat_avgLAR_pzero*elev+year + (1|block)+(1|genotype)+(1|exp_ID),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
+#with treatment/mat_treat
+SLA_RM_a <- lmer(SLA ~ treatment*mat_treat*elev+season + (1|block)+(1|genotype)+(1|exp_ID),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
 
-plot(SLA_RM)
+plot(SLA_RM_a)
 
-Anova(SLA_RM)
+Anova(SLA_RM_a, type = "III")
 
-visreg(SLA_RM,"elev", by="LAR_avg_prop", overlay=TRUE,   scale = "response", xlab="Leaf area removed by herbivores", ylab="SLA CM3/g ", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("darkred","orange","#56B4E9")), points=list(col=c("darkred","orange","#56B4E9")),fill=list(col=grey(c(1), alpha=0.4)))
+visreg(SLA_RM_a,"elev", by="treatment", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
 
-visreg2d(SLA_RM,"elev","LAR_avg_prop",xlab="Source elevation (Km)", ylab="Leaf area herbivorized")
-visreg2d(SLA_RM, "elev", "LAR_avg_prop", plot.type="persp")
-visreg2d(SLA_RM,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(200,300),ylim=c(0,.25))
+#with avg damage/mat avg damage
+SLA_RM_b <- lmer(SLA ~ LAR_avg_prop*mat_avgLAR*elev+season + (1|block)+(1|genotype)+(1|exp_ID),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
 
-SLA_RM <- lmer(SLA ~ LAR_avg_prop*mat_avgLAR_pzero*genotype+year + (1|block)+(1|exp_ID),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = SLA_data)
-LSmeans_SLA <- SLA_RM(modF,~genotype:treatment:num_leaves_)
+plot(SLA_RM_b)
+
+Anova(SLA_RM_b, type = "III")
+
+summary(SLA_RM_b)
+
+visreg2d(SLA_RM_b,"elev","LAR_avg_prop",xlab="Source elevation (Km)", ylab="Leaf area herbivorized")
 
 
 
@@ -237,41 +169,45 @@ SLA_data_S1 $s_S1_SLA_include<-scale(SLA_data_S1$S1_SLA_include,center=TRUE, sca
 
 
 #looking at season 1
-repro_SLA_S1 <-glmmTMB(S1_reproduced~LAR_avg_S1_prop*S1_SLA_include*mat_avgLAR_pzero +(1|block)+(1|genotype),data=SLA_data_S1,family=binomial(link="logit"))
+#SLA for first season is S1_SLA
+#also have to filter for the indiv that we have appropriate values for SLA 
+SLA_data_S1=filter(gh2,S1_include_SLA == 1)
 
-Anova(repro_SLA_S1,type="III") 
 
+repro_SLA_S1_a <-glmmTMB(S1_reproduced~treatment*S1_SLA_include*mat_treat +(1|block)+(1|genotype),data=SLA_data_S1,family=binomial(link="logit"))
+
+Anova(repro_SLA_S1_a,type="III") 
+
+visreg(repro_SLA_S1_a,"S1_SLA_include",  scale = "response", xlab="SLA", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
+
+
+repro_SLA_S1_b <-glmmTMB(S1_reproduced~LAR_avg_S1_prop*S1_SLA_include*mat_avgLAR +(1|block)+(1|genotype),data=SLA_data_S1,family=binomial(link="logit"))
+
+Anova(repro_SLA_S1_b,type="III") 
 
 visreg(repro_SLA_S1,"S1_SLA_include", by="LAR_avg_S1_prop", overlay=FALSE,  scale = "response", xlab="SLA", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
 
-visreg2d(repro_SLA_S1,"S1_SLA_include","LAR_avg_S1_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(0,1),ylim=c(0,.25))
-
-repro_SLA_S1_quad <-glmmTMB(S1_reproduced~LAR_avg_S1*mat_avgLAR_pzero*S1_SLA_include+ I(S1_SLA_include^2)*LAR_avg_S1*mat_avgLAR_pzero +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(repro_SLA_S1_quad)
-
-visreg(repro_SLA_S1_quad,"S1_SLA_include", by="LAR_avg_S1", overlay=FALSE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
-
 #looking at season 2
+#SLA for second season is S2_SLA
+#also have to filter for the indiv that we have appropriate values for SLA 
+SLA_data_S2=filter(gh2,S2_include_SLA == 1)
+
 
 SLA_data_S2 $s_LAR_avg_S2_prop<-scale(SLA_data_S2$LAR_avg_S2_prop,center=TRUE, scale=TRUE)
 SLA_data_S2 $s_S2_SLA_include<-scale(SLA_data_S2$S2_SLA_include,center=TRUE, scale=TRUE)
 
-repro_SLA_S2 <-glmmTMB(S2_reproduced~LAR_avg_S2_prop*mat_avgLAR_pzero*S2_SLA_include +(1|block)+(1|genotype),data=SLA_data_S2,family=binomial(link="logit"))
+repro_SLA_S2_a <-glmmTMB(S2_reproduced~treatment*mat_treat*S2_SLA_include +(1|block)+(1|genotype),data=SLA_data_S2,family=binomial(link="logit"))
 
-Anova(repro_SLA_S2,type="III") 
+Anova(repro_SLA_S2_a,type="III") 
 
-visreg(repro_SLA_S2,"S2_SLA_include",  scale = "response", xlab="SLA", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
+visreg(repro_SLA_S2_a,"S2_SLA_include",  scale = "response", xlab="SLA", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
 
-visreg(repro_SLA_S2,"LAR_avg_S2_prop",  scale = "response", xlab="Average Leaf area removed %", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
 
-visreg2d(repro_SLA_S1,"S2_SLA_include","LAR_avg_S2_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(0,1),ylim=c(0,.25))
+repro_SLA_S2_b <-glmmTMB(S2_reproduced~LAR_avg_S2_prop*mat_avgLAR*S2_SLA_include +(1|block)+(1|genotype),data=SLA_data_S2,family=binomial(link="logit"))
 
-repro_SLA_S2_quad <-glmmTMB(S2_reproduced~LAR_avg_S2_prop*mat_avgLAR_pzero*S2_SLA_include+ I(S2_SLA_include^2)*LAR_avg_S2_prop*mat_avgLAR_pzero +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
+Anova(repro_SLA_S2_b,type="III") 
 
-Anova(repro_SLA_S2_quad)
-
-visreg(repro_SLA_S2_quad,"S2_SLA_include", by="LAR_avg_S2_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:2,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
+visreg(repro_SLA_S2_b,"S2_SLA_include",  scale = "response", xlab="SLA", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
 
 
 #### linear regression of fecundity as a fitness component ####
@@ -282,32 +218,49 @@ repro_dataS2 <- filter(SLA_data_S2, S2_Mature_length_siliques > 0 )
 
 
 #looking at season 1
-fecundity_SLA_S1 <-glmmTMB(S1_Mature_length_siliques~LAR_avg_S1_prop*S1_SLA_include+mat_avgLAR_pzero* +(1|block)+(1|genotype),data=repro_dataS1,family=ziGamma(link="log"))
 
-Anova(fecundity_SLA_S1,type="III")
+repro_dataS1 $S_S1_SLA_include<-scale(repro_dataS1$S1_SLA_include,center=TRUE, scale=TRUE)
 
-summary(fecundity_SLA_S1)
+fecundity_SLA_S1a <-glmmTMB(S1_Mature_length_siliques~treatment*S_LAR_avg_S1_prop*mat_treat+(1|block)+(1|genotype),data=repro_dataS1,family=ziGamma(link="log"))
 
-fecundSLA <-predictorEffect("LAR_avg_S1_prop",  partial.residuals=TRUE, fecundity_SLA_S1)
+Anova(fecundity_SLA_S1a,type="III")
+
+summary(fecundity_SLA_S1a)
+
+fecundSLA <-predictorEffect("S_LAR_avg_S1_prop",  partial.residuals=TRUE, fecundity_SLA_S1a)
+plot(fecundSLA, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"),
+     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,2000))
+
+
+repro_dataS1 $mat_avgLAR<-scale(repro_dataS1$mat_avgLAR,center=TRUE, scale=TRUE)
+repro_dataS1 $S_LAR_avg_S1_prop<-scale(repro_dataS1$LAR_avg_S1_prop,center=TRUE, scale=TRUE)
+
+fecundity_SLA_S1b <-glmmTMB(S1_Mature_length_siliques~LAR_avg_S1_prop*S_S1_SLA_include*mat_avgLAR +(1|block)+(1|genotype),data=repro_dataS1,family=ziGamma(link="log"))
+
+Anova(fecundity_SLA_S1b,type="III")
+
+fecundSLA <-predictorEffect("mat_avgLAR_pzero",  partial.residuals=TRUE, fecundity_SLA_S1b)
 plot(fecundSLA, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
      partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,300))
 
-visreg(fecundity_SLA_S1,"LAR_avg_S1_prop",  scale = "response", xlab="Average Leaf area removed %", ylab="Mature length siliques", partial=FALSE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(fecundity_SLA_S1,"S1_SLA_include","LAR_avg_S1_prop", scale = "response", xlab="SLA", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(200,800),ylim=c(0,.25))
-
-
-fecundity_SLA_S1_quad <-glmmTMB(S1_Mature_length_siliques~LAR_avg_S1_prop*mat_avgLAR_pzero*S1_SLA_include + I(S1_SLA_include^2)*LAR_avg_S1_prop*mat_avgLAR_pzero+(1|block)+(1|genotype),data=repro_dataS1,family=Gamma(link="log"))
-
-Anova(fecundity_SLA_S1_quad)
-
-fecundSLAquad <-predictorEffect("S1_SLA_include",  partial.residuals=TRUE, fecundity_SLA_S1_quad)
-plot(fecundSLAquad, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
 
 
 #looking at season 2
-fecundity_SLA_S2 <-glmmTMB(S2_Mature_length_siliques~LAR_avg_S2_prop*S2_SLA_include +mat_avgLAR_pzero+(1|block)+(1|genotype),data=repro_dataS2,family=ziGamma(link="log"))
+repro_dataS2 $S_S2_SLA_include<-scale(repro_dataS2$S2_SLA_include,center=TRUE, scale=TRUE)
+
+fecundity_SLA_S2 <-glmmTMB(S2_Mature_length_siliques~treatment*S_S2_SLA_include*mat_treat+(1|block)+(1|genotype),data=repro_dataS2,family=ziGamma(link="log"))
+
+Anova(fecundity_SLA_S2,type="III")
+
+summary(fecundity_SLA_S2)
+
+fecundSLA_S2 <-predictorEffect("S_S2_SLA_include",  partial.residuals=TRUE, fecundity_SLA_S2)
+plot(fecundSLA_S2, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=FALSE, lty=3:1, col="black"),
+     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1000))
+
+
+
+fecundity_SLA_S2 <-glmmTMB(S2_Mature_length_siliques~LAR_avg_S2_prop*S_S2_SLA_include*mat_avgLAR+(1|block)+(1|genotype),data=repro_dataS2,family=ziGamma(link="log"))
 
 Anova(fecundity_SLA_S2,type="III")
 
@@ -318,15 +271,6 @@ plot(fecundSLA_S2, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number o
      partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,1000))
 
 
-repro_SLA_S2_quad <-glmmTMB(S2_Mature_length_siliques~LAR_avg_S2_prop*mat_avgLAR_pzero*S2_SLA_include+ I(S2_SLA_include^2)*LAR_avg_S2_prop*mat_avgLAR_pzero +(1|block)+(1|genotype),data=repro_dataS2,family=Gamma(link="log"))
-
-Anova(repro_SLA_S2_quad)
-
-fecundSLAquad <-predictorEffect("S2_SLA_include",  partial.residuals=TRUE, repro_SLA_S2_quad)
-plot(fecundSLAquad, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
-
-
 
 #*******************************************************************************
 #### 2.LAR for greenhouse experiment #####
@@ -335,201 +279,13 @@ plot(fecundSLAquad, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number 
 
 herb <- subset(gh2, treatment == "Herbivorized")
 
-#histograms of avg damage and max damage
-ggplot(herb, aes(x= LAR_avg_prop))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-ggplot(herb, aes(x= LAR_max_prop))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-
-
-#avg
-elev_avgLAR =ggplot(herb, aes(x= elevation,y= LAR_avg_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-elev_avgLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_avgLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_avgLARbox<-ggplot(herb, aes(x = treatment, y = LAR_avg_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_avgLARbox + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                               axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                               panel.grid.minor=element_blank(),legend.position = "top")+ #scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +  
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-
-
-#max
-elev_maxLAR =ggplot(herb, aes(x= elevation,y= LAR_max_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-elev_maxLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_maxLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_maxLARbox<-ggplot(herb, aes(x = treatment, y = LAR_max_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_maxLARbox + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                               axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                               panel.grid.minor=element_blank(),legend.position = "top")+# scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-
-#season 1
-
-#histograms of avg damage and max damage
-ggplot(herb, aes(x= LAR_avg_S1_prop))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-ggplot(herb, aes(x= LAR_max_S1_prop))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-
-
-#avg
-elev_avgS1LAR =ggplot(herb, aes(x= elevation,y= LAR_avg_S1_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-elev_avgS1LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_avgS1LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_avgS1LARbox<-ggplot(herb, aes(x = treatment, y = LAR_avg_S1_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_avgLARbox + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                                    axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                    panel.grid.minor=element_blank(),legend.position = "top")+ #scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +  
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-
-
-#max
-elev_maxS1LAR =ggplot(herb, aes(x= elevation,y= LAR_max_S1_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-
-elev_maxLAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_maxS1LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_maxLARS1box<-ggplot(herb, aes(x = treatment, y = LAR_max_S1_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_maxLARbox + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                                    axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                    panel.grid.minor=element_blank(),legend.position = "top")+# scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-#season 2
-
-#histograms of avg damage and max damage
-ggplot(herb, aes(x= LAR_avg))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-ggplot(herb, aes(x= LAR_max))+ geom_histogram(color="black", fill="white")+ facet_grid(mat_treat ~ .)
-
-
-#avg
-elev_avgS2LAR =ggplot(herb, aes(x= elevation,y= LAR_avg_S2_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-elev_avgS2LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_avgS2LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_avgS2LARbox<-ggplot(herb, aes(x = treatment, y = LAR_avg_S2_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_avgS2LARbox + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                                    axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                    panel.grid.minor=element_blank(),legend.position = "top")+ #scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +  
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-
-
-#max
-elev_maxS2LAR =ggplot(herb, aes(x= elevation,y= LAR_max_S2_prop,shape= mat_treat, color= mat_treat,linetype= mat_treat))+geom_point(aes(shape= mat_treat),size=4)+scale_x_continuous("Source Elevation")+scale_y_continuous("Leaf area herbivorized")
-
-elev_maxS2LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",se=FALSE,  size=1)
-
-elev_maxS2LAR +theme_bw()+ theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255", "grey"))+geom_smooth(method="lm",  size=1,formula=y~poly(x,2))
-
-elev_maxLARS2box<-ggplot(herb, aes(x = treatment, y = LAR_max_S2_prop, fill = mat_treat,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf area removed (%)") +
-  geom_point(pch = 21, position = position_jitterdodge())
-elev_maxLARS2box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                                    axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                    panel.grid.minor=element_blank(),legend.position = "top")+# scale_x_discrete(labels=c("no herbivore", "herbivore addition")) +
-  scale_fill_manual(values = c( "#6699cc","#882255", "grey"), name = "Maternal environment", labels = c("no herbivore", "herbivore addition","control"))
-
-
-#analysis with LAR averaged across 2 seasons
-
-LAR_data <- drop_na(herb,LAR_avg_prop) #this removes the rows without LAR values
-
-LAR_data <- dplyr::select(LAR_data, LAR_avg_prop, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
-
-#using BE since there are no zeros / ones for avg LAR
-gamlss_mod<- gamlss (formula=LAR_avg_prop~elev+mat_treat+I(elev^2)+mat_treat +random(block)+random(genotype),family=BE(mu.link = "identity", sigma.link = "log"), data=LAR_data,control = gamlss.control(n.cyc = 500))
-
-summary(gamlss_mod)
-plot(gamlss_mod)
-
-visreg(gamlss_mod, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
-       #scale = "response", 
-       xlab="Source Elevation (Km)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=c("#6699cc","#882255","grey")),
-       points=list(cex=1.5,col=c("#6699cc","#882255","grey"))) 
-
-visreg(gamlss_mod, 'elev', type="conditional",
-       #scale = "response", 
-       xlab="Source elevation (Km)", ylab="Percentage leaf area herbivorized", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5)
-
-
-#lmer model
-modA<- lmer(log(LAR_avg_prop)~ mat_treat+elev+I(elev^2)+ (1|block)+(1|genotype),data= LAR_data)
-Anova(modA,type="III")
-##You can see here that the residuals aren't great
-plot(modA)
-
-visreg(modA, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
-       #scale = "response", 
-       xlab="Source Elevation (Km)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=c("#6699cc","#882255","grey")),
-       points=list(cex=1.5,col=c("#6699cc","#882255","grey"))) 
-
-#proceeding with Max LAR
-
-LAR_data <- drop_na(herb,LAR_max_prop) #this removes the rows without LAR values
-
-LAR_data <- dplyr::select(LAR_data, LAR_max_prop, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block)
-
-#using BE since there are no zeros / ones for MAX LAR
-gamlss_mod<- gamlss (formula=LAR_max_prop~elev+mat_treat+I(elev^2)+mat_treat +random(block)+random(genotype),family=BE(mu.link = "identity", sigma.link = "log"), data=LAR_data,control = gamlss.control(n.cyc = 500))
-
-summary(gamlss_mod)
-plot(gamlss_mod)
-
-visreg(gamlss_mod, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
-       #scale = "response", 
-       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=c("#6699cc","#882255","grey")),
-       points=list(cex=1.5,col=c("#6699cc","#882255","grey")))
-
-
-visreg(gamlss_mod, 'elev', type="conditional",
-       #scale = "response", 
-       xlab="Source elevation (Km)", ylab="Percentage leaf area herbivorized", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5)
-
-#lmer model
-modB<- lmer(LAR_max_prop~ mat_treat+elev+I(elev^2)+ (1|block)+(1|genotype),data= LAR_data)
-Anova(modB,type="III")
-##You can see here that the residuals aren't great
-plot(modB)
-
-visreg(modB, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
-       #scale = "response", 
-       xlab="Elevation (m)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col="blue"),
-       line=list(col=c("#6699cc","#882255","grey")),
-       points=list(cex=1.5,col=c("#6699cc","#882255","grey")))
-
-
 #repeated measures 
 
 LAR_data<- herb %>% pivot_longer(cols=c('S1_LAR1_prop', 'S1_LAR3_prop', 'S1_LAR13_prop','S2_LAR1_prop', 'S2_LAR2_prop'),
                                  names_to='exposure',
                                  values_to='LAR')
 
-LAR_data <- dplyr::select(LAR_data, LAR, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, exposure,mat_avgLAR_pzero)
+LAR_data <- dplyr::select(LAR_data, LAR, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, exposure,mat_avgLAR)
 
 LAR_data$census<-LAR_data$exposure
 LAR_data$census[LAR_data$census == "S1_LAR1_prop"] <- "1"
@@ -560,13 +316,14 @@ max(LAR_data $y_beta)
 
 
 
-#Then, the analysis is:
-library(betareg)
-beta_model<- betareg ( y_beta ~elev*mat_avgLAR_pzero+census, data=LAR_data)
-Anova(beta_model,type="III")
-visreg(beta_model, "elev", by="mat_avgLAR_pzero", overlay=TRUE, scale="response")
+#Then, the analysis for treatment/mat_treat
 
-visreg(beta_model, 'elev', by= "mat_avgLAR_pzero", overlay = TRUE, type="conditional", 
+library(betareg)
+beta_modela<- betareg ( y_beta ~elev*mat_treat+census, data=LAR_data)
+Anova(beta_modela,type="III")
+visreg(beta_modela, "elev", scale="response")
+
+visreg(beta_modela, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
        scale = "response", 
        xlab="Source Elevation (Km)", ylab="Damage by herbivores (beta transformation)", partial=FALSE,# cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(1), alpha=0.1)),
@@ -575,25 +332,25 @@ visreg(beta_model, 'elev', by= "mat_avgLAR_pzero", overlay = TRUE, type="conditi
 
 
 
-summary(beta_model)
+summary(beta_modela)
 
-plot(beta_model)
-gamlss_mod<- gamlss (formula= y_beta ~elev*mat_treat+census + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500)) #have to use logit link, dont need to specify, but i did here
+plot(beta_modela)
+gamlss_moda<- gamlss (formula= y_beta ~elev*mat_treat+census + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500)) #have to use logit link, dont need to specify, but i did here
 
-summary(gamlss_mod)
-plot(gamlss_mod)
-Anova(gamlss_mod)
+summary(gamlss_moda)
+plot(gamlss_moda)
+Anova(gamlss_moda)
 
 
 #pull the fitted values out and plot them in ggplot
 
 newdf2 <- LAR_data %>% 
   
-  mutate(fit.m = predict(gamlss_mod, re.form = NA),
+  mutate(fit.m = predict(gamlss_moda, re.form = NA),
          
-         fit.c = predict(gamlss_mod, re.form = NULL), #all random effects
+         fit.c = predict(gamlss_moda, re.form = NULL), #all random effects
 
-         resid = residuals(gamlss_mod))
+         resid = residuals(gamlss_moda))
 
 ##Convert fit.m and fit.c back to the proportional scale
 
@@ -611,7 +368,7 @@ LAR_fig =ggplot(newdf2,aes(x= elev,y= LAR,shape= mat_treat, linetype= mat_treat,
   
   #geom_line(aes(y= fit.m_trans, lty= mat_treat), size=0.8) +
   
-  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255","grey"))
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255"))
 
 LAR_fig
 
@@ -630,6 +387,79 @@ predictedProb_fig =ggplot(newdf2,aes(x= elev,y= fit.m_trans + resid_trans,shape=
   theme_bw()  
 
 predictedProb_fig
+
+##### Then, the analysis for avg damage/mat avg damage #####
+
+beta_modelb<- betareg ( y_beta ~elev*mat_avgLAR+census, data=LAR_data)
+Anova(beta_modelb,type="III")
+visreg(beta_modelb, "elev", scale="response")
+
+visreg(beta_modelb, 'elev', by= "mat_avgLAR", overlay = TRUE, type="conditional", 
+       scale = "response", 
+       xlab="Source Elevation (Km)", ylab="Damage by herbivores (beta transformation)", partial=FALSE,# cex.lab = 1.5,cex.axis = 1.5,
+       fill=list(col=grey(c(1), alpha=0.1)),
+       line=list(col=c("#6699cc","#882255")),
+       points=list(cex=1.5,col=c("#6699cc","#882255",""))) 
+
+
+
+plot(beta_modelb)
+gamlss_modb<- gamlss (formula= y_beta ~elev*mat_avgLAR+census + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500)) #have to use logit link, dont need to specify, but i did here
+
+summary(gamlss_modb)
+plot(gamlss_mod)
+
+
+
+#pull the fitted values out and plot them in ggplot
+
+newdf3 <- LAR_data %>% 
+  
+  mutate(fit.m = predict(gamlss_modb, re.form = NA),
+         
+         fit.c = predict(gamlss_modb, re.form = NULL), #all random effects
+         
+         resid = residuals(gamlss_modb))
+
+##Convert fit.m and fit.c back to the proportional scale
+
+newdf3 $fit.m_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+
+newdf3 $fit.c_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+
+newdf3 $resid_trans<-1/(1+exp(-(newdf3 $resid))) 
+
+
+
+LAR_fig =ggplot(newdf3,aes(x= elev,y= LAR,shape= mat_treat, linetype= mat_treat,color= mat_treat, group= mat_treat)) + 
+  
+  geom_point(aes(shape= mat_treat),size=4)+scale_shape_manual(values = c(0,17)) +scale_x_continuous("Elevation (km)")+ scale_y_continuous("Leaf area removed by herbivores") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +
+  
+  #geom_line(aes(y= fit.m_trans, lty= mat_treat), size=0.8) +
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255"))
+
+LAR_fig
+
+
+
+
+##And if you wanted to plot the partial residuals (instead of raw data) – again, you could customize this to your heart’s delight:
+
+
+predictedProb_fig =ggplot(newdf3,aes(x= elev,y= fit.m_trans + resid_trans,shape= mat_treat, linetype= mat_treat,color= mat_treat, group= mat_treat)) + 
+  
+  #geom_line(aes(y= fit.m_trans, lty= mat_treat), size=0.8) +
+  
+  geom_smooth(method = "lm", se = TRUE,formula=y~x) + 
+  
+  theme_bw()  
+
+predictedProb_fig
+
+
+
+
 
 #*******************************************************************************
 #### 3.Fitness models: hurdle ~ mat treatment x treatment x elev #####
