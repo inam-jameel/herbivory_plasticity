@@ -46,8 +46,8 @@ gh2 $S_init_size<-scale(gh2$ini_size,center=TRUE, scale=TRUE)
 
 #maternal leaf damage
 
-gh2$mat_avgLAR_pzero<- gh2$mat_avgLAR_pzero/100
-hist(gh2$mat_avgLAR_pzero) 
+gh2$mat_avgLAR<- gh2$mat_avgLAR/100
+hist(gh2$mat_avgLAR) 
 
 #summary
 gh2$LAR_avg_prop<- gh2$LAR_avg/100
@@ -471,62 +471,122 @@ fruit_data<- gh2 %>% pivot_longer(cols=c('S1_Mature_length_siliques', 'S2_Mature
                                   names_to='season',
                                   values_to='fruit_length')
 
-fruit_data <- dplyr::select(fruit_data, fruit_length, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, LAR_max_prop,mat_avgLAR_pzero)
+fruit_data <- dplyr::select(fruit_data, fruit_length, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, LAR_max_prop,mat_avgLAR)
 fruit_data$season[fruit_data$season == "S1_Mature_length_siliques"] <- "1"
 fruit_data$season[fruit_data$season == "S2_Mature_length_siliques"] <- "2"
 fruit_data$season<-as.numeric(fruit_data$season)
 
-#fruit_data <- filter(fruit_data, fruit_length > 0 )
 
 
-##: We can also do a hurdle model in one step in the glmmTMB package. 
-
+#### treatment ####
 hist(gh2$Overall_Mature_length_siliques)
 
-hurdle_Model<- glmmTMB(round(Overall_Mature_length_siliques) ~LAR_avg_prop*elevmat_avgLAR_pzero + (1|block)+ (1| genotype), zi=~LAR_avg_prop*elev*mat_avgLAR_pzero + (1|block)+ (1| genotype),data = gh2 ,family=truncated_nbinom2)
+hurdle_Model<- glmmTMB(round(Overall_Mature_length_siliques) ~treatment*elev*mat_treat + (1|block)+ (1| genotype), zi=~treatment*elev*mat_treat + (1|block)+ (1| genotype),data = gh2 ,family=truncated_nbinom2)
 
-hurdle_Model_repeated <- glmmTMB(fruit_length ~LAR_avg_prop*elev+mat_avgLAR_pzero+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=fruit_data, zi=~LAR_avg_prop*elev+mat_avgLAR_pzero+season + (1|block)+ (1| genotype)+ (1| exp_ID),family=ziGamma(link="log"))
+Anova(hurdle_Model,type="III", component="zi")
+Anova(hurdle_Model,type="III", component="cond")
 
 
-##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows a signifciant source elevation by treatment interaction, similar to Analysis 1a.
-Anova(hurdle_Model_repeated,type="III", component="zi")
-##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). It shows a a marginally significant source elevation by herbivore by treatment interaction.
-Anova(hurdle_Model_repeated,type="III", component="cond")
+
+hurdle_Model_repeateda <- glmmTMB(fruit_length ~treatment*elev*mat_treat+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=fruit_data, zi=~treatment*elev*mat_treat+season + (1|block)+ (1| genotype)+ (1| exp_ID),family=ziGamma(link="log"))
+
+
+##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows significiant source elevation.
+Anova(hurdle_Model_repeateda,type="III", component="zi")
+##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
+Anova(hurdle_Model_repeateda,type="III", component="cond")
 
 require(AICcmodavg)
 require(performance)
 require(DHARMa)
-diagnose(hurdle_Model_repeated)
+diagnose(hurdle_Model_repeateda)
 
-check_zeroinflation(hurdle_Model_repeated)
+check_zeroinflation(hurdle_Model_repeateda)
 
-check_overdispersion(hurdle_Model_repeated)
-testDispersion(hurdle_Model_repeated)
-plotQQunif(hurdle_Model_repeated)
-plotResiduals(hurdle_Model_repeated)
+plotQQunif(hurdle_Model_repeateda)
+plotResiduals(hurdle_Model_repeateda)
 
-summary(hurdle_Model_repeated)
+summary(hurdle_Model_repeateda)
+
+# predictor effects is not working with zero inflated due to gamma?
+#zeroinflated <-predictorEffect("elev",  partial.residuals=FALSE, hurdle_Model_repeated,component="zi")
+#plot(zeroinflated, lwd=2,xlab="Source elevation (km)", ylab="Fecundity", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1500))
+
+library(ggeffects)
+
+plot(ggpredict(hurdle_Model_repeateda, terms = "elev"))
+
+result <- ggpredict(hurdle_Model_repeateda, c("elev","mat_avgLAR_pzero","LAR_avg_prop"))
+plot(result)
+
+# Extract the predicted probabilities of zero counts
+predicted_probs_zero <- predict(hurdle_Model_repeateda, type = "response", re.form = NA)
+
+# Create a data frame for plotting
+plot_data <- data.frame(
+  elev = fruit_data$elev,
+  treatment = fruit_data$treatment,
+  mat_treat = fruit_data$mat_treat,
+  season = fruit_data$season,
+  predicted_probs_zero = predicted_probs_zero
+)
+
+# Scatterplot with regression line
+plot(plot_data$elev, plot_data$predicted_probs_zero, 
+     xlab = "Covariate 1", ylab = "Predicted Probability of Zero Count",
+     main = "Zero-Inflated Component Regression Plot")
+abline(lm(predicted_probs_zero ~ elev+treatment+mat_treat+season, data = plot_data), col = "red")
 
 
-visreg2d(hurdle_Model_repeated,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,400, by=50))
+
+# Manually subset to exclude cases with zero counts
+positive_counts_indices <- fruit_data$fruit_length > 0
+predicted_counts_positive <- predicted_probs_zero[positive_counts_indices]
 
 
-zeroinflated <-predictorEffect("elev",  partial.residuals=FALSE, hurdle_Model_repeated,component="cond")
-plot(zeroinflated, lwd=2,xlab="Source elevation (km)", ylab="Fecundity", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=TRUE, pch=19, col="black"), ylim=c(0,1500))
+# Create a data frame for plotting
+plot_data_positive <- data.frame(
+  elev = fruit_data$elev[positive_counts_indices],
+  treatment = fruit_data$treatment[positive_counts_indices],
+  mat_treat = fruit_data$mat_treat[positive_counts_indices],
+  season = fruit_data$season[positive_counts_indices],
+  predicted_counts_positive = predicted_counts_positive
+)
+
+# Scatterplot with regression line
+plot(plot_data_positive$elev, plot_data_positive$predicted_counts_positive, 
+     xlab = "Covariate 1", ylab = "Predicted Counts for Positive Counts",
+     main = "Count Data Component Regression Plot")
+abline(lm(predicted_counts_positive ~ elev*treatment*mat_treat+season, data = plot_data_positive), col = "blue")
+
+##### avg LAR ####
+
+hurdle_Modelb<- glmmTMB(round(Overall_Mature_length_siliques) ~LAR_avg_prop*mat_avgLAR + (1|block)+ (1| genotype), zi=~LAR_avg_prop*elev*mat_avgLAR_pzero + (1|block)+ (1| genotype),data = gh2 ,family=truncated_nbinom2)
+
+hurdle_Model_repeatedb <- glmmTMB(fruit_length ~LAR_avg_prop*elev+mat_avgLAR+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=fruit_data, zi=~LAR_avg_prop*elev+mat_avgLAR+season + (1|block)+ (1| genotype)+ (1| exp_ID),family=ziGamma(link="log"))
 
 
+##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows a signifciant source elevation
+Anova(hurdle_Model_repeatedb,type="III", component="zi")
+##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced).
+Anova(hurdle_Model_repeatedb,type="III", component="cond")
 
-visreg(hurdle_Model_repeated,"elev", by="LAR_avg_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
+diagnose(hurdle_Model_repeatedb)
+
+testDispersion(hurdle_Model_repeatedb)
+plotQQunif(hurdle_Model_repeatedb)
+plotResiduals(hurdle_Model_repeatedb)
+
+summary(hurdle_Model_repeatedb)
+
 
 library(ggeffects)
 
 plot(ggpredict(hurdle_Model_repeated, terms = "mat_avgLAR_pzero"))
 
-result <- ggpredict(hurdle_Model_repeated, c("elev","mat_avgLAR_pzero","LAR_avg_prop"))
+result <- ggpredict(hurdle_Model_repeatedb, c("elev"))
 plot(result)
 
-plot_model(hurdle_Model_repeated)
 
 #*******************************************************************************
 #### 3.Fitness models: Probability of Reproduction ~ mat treatment x treatment x elev #####
@@ -547,161 +607,46 @@ repro_data<- gh2 %>% pivot_longer(cols=c('S1_reproduced', 'S2_reproduced'),
                                 names_to='season',
                                 values_to='reproduced')
 
-repro_data <- dplyr::select(repro_data, reproduced, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, LAR_max_prop,mat_avgLAR_pzero)
+repro_data <- dplyr::select(repro_data, reproduced, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, LAR_max_prop,mat_avgLAR)
 repro_data$season[repro_data$season == "S1_reproduced"] <- "1"
 repro_data$season[repro_data$season == "S2_reproduced"] <- "2"
 repro_data$season<-as.numeric(repro_data$season)
 
-mod_repro_REavgLAR<-glmmTMB(reproduced~elev*mat_avgLAR_pzero*LAR_avg_prop+season+(1|block)+(1|genotype)+(1|exp_ID),data=repro_data,family=binomial(link="logit"))
 
-Anova(mod_repro_REavgLAR) #sig interaction btw mat_treat and elev
+####treatment####
 
-visreg(mod_repro_REavgLAR,"elev", by="mat_avgLAR_pzero", overlay=FALSE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
+mod_repro_REavgLARa<-glmmTMB(reproduced~elev*treatment*mat_treat+season+(1|block)+(1|genotype)+(1|exp_ID),data=repro_data,family=binomial(link="logit"))
 
-visreg(mod_repro_REavgLAR, 'elev', by= "mat_avgLAR_pzero", overlay = TRUE, type="conditional", 
+Anova(mod_repro_REavgLARa, type="III") #sig interaction btw mat_treat and elev
+
+visreg(mod_repro_REavgLARa,"elev", by="mat_treat", overlay=FALSE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
+
+visreg(mod_repro_REavgLAR, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
        scale = "response", 
        xlab="Source Elevation (Km)", ylab="Probability of flowering", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col=grey(c(1), alpha=0.1)),
        line=list(col=c("#6699cc","#882255")),
        points=list(cex=1.5,col=c("#6699cc","#882255"))) 
 
-visreg2d(mod_repro_REavgLAR,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(0,1),ylim=c(0,.25))
+#### Avg LAR####
 
-mod_flower_REmaxLAR<-glmmTMB(flowered~elev*LAR_max_prop*mat_avgLAR_pzero+season+(1|block)+(1|genotype)+(1|exp_ID),data=flowering_data,family=binomial(link="logit"))
+repro_data $s_LAR_avg_prop<-scale(repro_data$LAR_avg_prop,center=TRUE, scale=TRUE) #doesnt need to be scaled, but i thought it would be good to be consistant
+repro_data $s_mat_avgLAR<-scale(repro_data$mat_avgLAR,center=TRUE, scale=TRUE)
+#have to scale the maternal damage
 
-Anova(mod_flower_REmaxLAR) #sig interaction btw mat_treat and elev
+mod_repro_REavgLARb<-glmmTMB(reproduced~elev*s_mat_avgLAR*s_LAR_avg_prop+season+(1|block)+(1|genotype)+(1|exp_ID),data=repro_data,family=binomial(link="logit"))
 
+Anova(mod_repro_REavgLARb,type="III") #sig interaction btw mat_treat and elev
 
-visreg(mod_flower_REmaxLAR, 'elev', by= "mat_avgLAR_pzero", overlay = TRUE, type="conditional", 
-       scale = "response", 
-       xlab="Source Elevation (Km)", ylab="Probability of flowering", partial=FALSE, cex.lab = 1.5,cex.axis = 1.5,
-       fill=list(col=grey(c(1), alpha=0.1)),
-       line=list(col=c("#6699cc","#882255","grey")),
-       points=list(cex=1.5,col=c("#6699cc","#882255","grey"))) 
+visreg(mod_repro_REavgLAR,"elev", by="mat_avgLAR_pzero", overlay=FALSE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
 
+visreg2d(mod_repro_REavgLARb,"elev","s_mat_avgLAR", scale = "response", xlab="Source elevation (Km)", ylab="maternal damage (scaled)",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,1, by=.25))
 
-
-#looking at overall flowered with treatment
-mod_flower<- glmer(Overall_flowered~ elev*treatment*mat_treat+ S_init_size + (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="optimx", tolPwrss=1e-3, optCtrl=list(method="nlminb")), family=binomial)
-Anova(mod_flower) # all seperate factors are sig, sig interaction btw mat_treat and elev
-
-visreg(mod_flower,"elev", by="treatment", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:2,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-
-
-flower_model<-glmmTMB(Overall_flowered~elev*treatment*mat_treat + S_init_size+(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(flower_model,type="III")
-
-visreg(flower_model,"elev", by="treatment", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-
-#looking at overall flowered with average LAR
-mod_flower_avgLAR<-glmmTMB(Overall_flowered~elev*LAR_avg_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_avgLAR) #sig interaction btw mat_treat and elev
-
-visreg(mod_flower_avgLAR,"elev", by="LAR_avg_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=TRUE,type="conditional",line=list(lty=1:3,col="black"), points=list(col="black"),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(mod_flower_avgLAR,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(0,1),ylim=c(0,.25))
-
-# average LAR x elev 2
-mod_flower_avgLARquad<-glmmTMB(Overall_flowered~elev*LAR_max_prop*mat_treat+ I(elev^2)*LAR_max_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_avgLARquad) # slight significance
-
-#looking at overall flowered with max LAR 
-
-mod_flower_maxLAR<-glmmTMB(Overall_flowered~elev*LAR_max_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_maxLAR,type="III") #significant elev x lar
-
-visreg(mod_flower_maxLAR,"elev", by="LAR_max_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255")), points=list(col=c("#6699cc","#882255")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-library(RColorBrewer)
-visreg2d(mod_flower_maxLAR,"elev","LAR_max_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(10),zlim=c(0,1),ylim=c(0,1))
-
-#looking at Season 1 flowered with season 1 avg  LAR
-mod_flower_S1avgLAR<-glmmTMB(S1_flowered~elev*LAR_avg_S1_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S1avgLAR) #sig interaction btw mat_treat and elev
-
-visreg(mod_flower_S1avgLAR,"elev", by="mat_treat", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255","grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(mod_flower_S1avgLAR,"elev","mat_treat", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,1, by=.05))
-
-# average LAR x elev 2
-mod_flower_S1avgLARquad<-glmmTMB(S1_flowered~elev*LAR_avg_S1*mat_treat+ I(elev^2)*LAR_avg_S1*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_avgLARquad) # individual factors are significant
-
-#looking at Season 1 flowered with season 1 max LAR
-mod_flower_S1maxLAR<-glmmTMB(S1_flowered~elev*LAR_max_S1_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S1maxLAR) #sig interaction btw mat_treat and elev
-
-visreg(mod_flower_S1maxLAR,"elev", by="mat_treat", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255","grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(mod_flower_S1maxLAR,"elev","mat_treat", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,1, by=.05))
-
-# max LAR x elev 2
-mod_flower_S1maxLARquad<-glmmTMB(S1_flowered~elev*LAR_max_S1*mat_treat+ I(elev^2)*LAR_max_S1*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S1maxLARquad) # individual factors are significant
-
-#looking at Season 2 flowered with season 2 avg  LAR
-mod_flower_S2avgLAR<-glmmTMB(S2_flowered~elev*LAR_avg_S2_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S2avgLAR) #slight sig interaction btw mat_treat and elev
-
-visreg(mod_flower_S2avgLAR,"elev", by="mat_treat", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Probability of flowering", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255","grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(mod_flower_S1avgLAR,"elev","mat_treat", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,1, by=.05))
-
-# average LAR x elev 2
-mod_flower_S2avgLARquad<-glmmTMB(S2_flowered~elev*LAR_avg_S2_prop*mat_treat+ I(elev^2)*LAR_avg_S2_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_avgLARquad) # individual factors are significant/ slightly significant
-
-#looking at Season 2 flowered with season 2 max LAR
-mod_flower_S2maxLAR<-glmmTMB(S2_flowered~elev*LAR_max_S2_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S2maxLAR) #nothing really
-
-# max LAR x elev 2
-mod_flower_S2maxLARquad<-glmmTMB(S2_flowered~elev*LAR_max_S2_prop*mat_treat+ I(elev^2)*LAR_max_S2_prop*mat_treat +(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(mod_flower_S2maxLARquad) # nothing really
 
 
 
 #*******************************************************************************
-#### 4.Fitness models: Survival ~ garden x treatment x elev #####
-#*******************************************************************************
-
-gh_pf= ggplot(gh2, aes(x= elev,y= S2_survival, group= treatment, 
-                       colour= treatment))+geom_point(size=5) + scale_y_continuous("Probability of survivial")+ scale_x_continuous("Source Elevation")
-
-gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                           axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
-                           panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ mat_treat, scales="free_x") +scale_colour_manual(values = c( "#6699cc","#882255"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
-
-vioplot(S2_survival ~ treatment, data= gh2, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255"), col=c("#6699cc","#882255"), ylab="Survival", xlab="Herbivore treatment")+stripchart(S2_survival ~ treatment, data= gh2,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-                                                                                                                                                      
-
-
-mod_surv<- glmer(S2_survival~elev*treatment*mat_treat + S_init_size+ (1|block)+(1|genotype), data = gh2, control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)), family=binomial)
-Anova(mod_surv) #only treatment is sig
-plot(mod_surv)
-
-survival_model<-glmmTMB(S2_survival~elev*treatment*mat_treat + S_init_size+(1|block)+(1|genotype),data=gh2,family=binomial(link="logit"))
-
-Anova(survival_model,type="III")
-
-
-
-#*******************************************************************************
-#### 5.Fitness models: Fecundity ~ garden x treatment x elev #####
+#### 4.Fitness models: Fecundity ~ garden x treatment x elev #####
 #*******************************************************************************
 
 repro <- filter(gh2, Overall_Mature_length_siliques > 0 )
@@ -716,103 +661,36 @@ gh_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_li
 vioplot(round(Overall_Mature_length_siliques) ~ treatment, data= repro, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,colMed = "black",colMed2 = c("#6699cc","#882255","grey"), col=c("#6699cc","#882255","grey"), ylab="Fecundity(summed silique length)", xlab="Herbivore treatment")+stripchart(round(Overall_Mature_length_siliques) ~ mat_treat, data= gh2,  method = "jitter", col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
 
 
-
-
-
-
 only_repro <- filter(fruit_data, fruit_length > 0 )
 
 hist(only_repro$fruit_length)
-mod_fecundity_avgLAR <- glmmTMB (round(fruit_length) ~ LAR_avg_prop*elev*mat_avgLAR_pzero+season  + (1| block)+(1|genotype)+(1|exp_ID), family=Gamma(link="log"), data = only_repro)
+
+#### treatment####
+mod_fecundity_avgLARa <- glmmTMB (fruit_length ~ treatment*elev*mat_treat+season  + (1| block)+(1|genotype)+(1|exp_ID), family=Gamma(link="log"), data = only_repro)
 
 
+Anova(mod_fecundity_avgLARa,type="III")
 
-Anova(mod_fecundity_avgLAR)
+summary(mod_fecundity_avgLARa)
 
-mod_fecundity_avgLAR <- glmmTMB(fruit_length ~LAR_avg_prop*elev*mat_avgLAR_pzero+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=fruit_data, zi=~LAR_avg_prop*elev*mat_avgLAR_pzero+season + (1|block)+ (1| genotype)+ (1| exp_ID))
+#### avg damage ####
+mod_fecundity_avgLARb <- glmmTMB (fruit_length ~ LAR_avg_prop*elev*mat_avgLAR+season  + (1| block)+(1|genotype)+(1|exp_ID), family=Gamma(link="log"), data = only_repro)
 
-Anova(mod_fecundity_avgLAR,type="III", component="zi")
-##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced)
-Anova(mod_fecundity_avgLAR,type="III", component="cond")
-summary(mod_fecundity_avgLAR)
+Anova(mod_fecundity_avgLARb,type="III")
 
-#glmmtmb
-mod_fecundity_avgLAR <- glmmTMB (Overall_Mature_length_siliques ~ LAR_avg_prop*elev*mat_treat  + (1| block)+(1|genotype), family=Gamma(link="log"),data = repro)
+summary(mod_fecundity_avgLARb)
 
-diagnose(mod_fecundity_avgLAR)
-
-Anova(mod_fecundity_avgLAR,type="III")
-
-summary(mod_fecundity_avgLAR)
-
-fecundmoda <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_avgLAR)
+fecundmoda <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_avgLARb)
 plot(fecundmoda, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
      partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
 
-visreg(mod_fecundity_avgLAR,"elev", by="LAR_avg_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
+library(ggeffects)
 
-visreg(mod_fecundity_avgLAR,"elev",  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
+plot(ggpredict(mod_fecundity_avgLARb, terms = "elev"))
 
-visreg2d(mod_fecundity_avgLAR,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,750, by=50))
+result <- ggpredict(mod_fecundity_avgLARb, c("elev","LAR_avg_prop","mat_avgLAR"))
+plot(result)
 
-cond=treatment (e.g., cond=”Herbivory”)
-
-## This is just another approach to visualizing these patterns:
-mod_fecundity_avgLARb<- glmer(Overall_Mature_length_siliques ~   S_LAR_avg_prop*elev*mat_treat+ (1|block) +(1|genotype), data= repro,family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
-#scaled avg LAR to help with convergence
-
-Anova(mod_fecundity_avgLARb,type="III")
-plot(mod_fecundity_avgLARb)
-
-fecundmodb <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_avgLARb)
-plot(fecundmodb, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(200,400))
-
-visreg2d(mod_fecundity_avgLARb,"elev","LAR_avg_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,750, by=50))
-
-
-fruit <-predictorEffect("elev",  partial.residuals=TRUE, hurdle)
-
-plot(fruit, lwd=2,xlab="Source Elevation (KM)", ylab="Fruit", pch=19, type="response",lines=list(multiline=TRUE, lty=2:1,
-                                                                                                 col="black"), partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,1500))
-
-visreg(hurdle,"mat_treat", by="LAR_max_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg(hurdle,"elev", by="LAR_max_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg2d(hurdle,"elev","LAR_max_prop", scale = "response", xlab="Source elevation (Km)", ylab="Leaf area herbivorized",col = colorRampPalette(brewer.pal(9,"Blues"))(20),zlim=c(0,750, by=50))
-
-
-
-#looking at max LAR
-
-mod_fecundity_maxLAR  <- glmmTMB (Overall_Mature_length_siliques ~ LAR_max_prop*elev*mat_treat  + (1| block)+(1|genotype) , family=Gamma(link="log"),data = repro)
-
-Anova(mod_fecundity_maxLAR,type="III")
-
-summary(mod_fecundity_maxLAR) 
-
-
-mod_fecundity_maxLARb<- glmer(Overall_Mature_length_siliques ~   LAR_max_prop*elev*mat_treat+ (1|block) +(1|genotype), data= repro,family=Gamma(link=log), control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
-Anova(mod_fecundity_maxLARb,type="III")
-
-fecundmodb <-predictorEffect("elev",  partial.residuals=TRUE, mod_fecundity_maxLARb)
-plot(fecundmodb, lwd=2,xlab="Source elevation (km)", ylab="Fecundity (number of fruits)", pch=19, type="response",lines=list(multiline=TRUE, lty=3:1, col="black"),
-     partial.residuals=list(smooth=FALSE, pch=19, col="black"), ylim=c(0,500))
-
-visreg(mod_fecundity_maxLARb,"elev", by="LAR_max_prop", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-visreg(mod_fecundity_maxLARb,"elev", by="mat_treat", overlay=TRUE,  scale = "response", xlab="Source elevation (Km)", ylab="Fecundity", partial=FALSE,type="conditional",line=list(lty=1:3,col=c("#6699cc","#882255", "grey")), points=list(col=c("#6699cc","#882255","grey")),fill=list(col=grey(c(0.8), alpha=0.4)))
-
-
-
-# Plot using ggplot2 and add facet_wrap
-ggplot(v, aes(x = Variable1, y = fit, color = Category)) +
-  geom_line() +
-  facet_wrap(~Category) +
-  labs(title = "2D Visreg Plot with Facet Wrap",
-       x = "Variable 1",
-       y = "Fitted Values")
 
 
 
