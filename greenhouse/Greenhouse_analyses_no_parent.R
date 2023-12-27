@@ -109,7 +109,7 @@ gh2 $S_LAR_avg_prop<-scale(gh2$LAR_avg_prop,center=TRUE, scale=TRUE)
 #### 1.SLA for greenhouse experiment #####
 #*******************************************************************************
 
-### SLA individual for full dataset ###
+#### SLA individual for full dataset ####
 
 SLA_S1 =ggplot(gh2, aes(x= elevation,y= S1_SLA, color = treat_mat))+ geom_point(size=3.5)+ ggtitle("SLA season 1 by Souce Elevation")+scale_x_continuous("Source Elevation")+ scale_y_continuous("SLA") +theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+geom_smooth(method="lm", formula=y~x,  se=TRUE, size=1.6)
 SLA_S1
@@ -123,7 +123,7 @@ SLA_data<- gh2 %>% pivot_longer(cols=c('S2_SLA_include', 'S1_SLA_include'),
                  names_to='season',
                  values_to='SLA')
 
-SLA_data <- dplyr::select(SLA_data, SLA, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, mat_avgLAR_pzero)
+SLA_data <- dplyr::select(SLA_data, SLA, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, mat_avgLAR)
 SLA_data$season[SLA_data$season == "S1_SLA_include"] <- "1"
 SLA_data$season[SLA_data$season == "S2_SLA_include"] <- "2"
 SLA_data$season<-as.numeric(SLA_data$season)
@@ -162,7 +162,77 @@ SLAnogeno <- lm(SLA ~ treatment*mat_treat*elev+year
 anova(SLA_RM, SLAnogeno)
 
 
-#### Logistic regression of reproduction as a fitness component ####
+#### selection, repeated measures ####
+
+
+#have to run after datafiles are made for SLA and the fitness components
+SLA_test <- dplyr::select(SLA_data, SLA, elev, genotype, treatment, mat_treat, exp_ID, S_init_size, block, season,LAR_avg_prop, mat_avgLAR)
+repro_test <- dplyr::select(repro_data, reproduced, exp_ID,season)
+fruit_test<- dplyr::select(fruit_data, fruit_length, exp_ID,season)
+
+fit_test <- merge(repro_test, fruit_test, by=c("exp_ID","season"))
+selection <- merge(SLA_test, fit_test, by=c("exp_ID","season"))
+
+selection $s_SLA<-scale(selection$SLA,center=TRUE, scale=TRUE)
+
+
+hurdle_Model_repeated_SLAa <- glmmTMB(fruit_length ~treatment*s_SLA+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=selection, zi=~treatment*s_SLA+season + (1|block)+ (1| genotype)+ (1| exp_ID),family=ziGamma(link="log"))
+
+##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows significiant source elevation.
+Anova(hurdle_Model_repeated_SLAa,type="III", component="zi")
+##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
+Anova(hurdle_Model_repeated_SLAa,type="III", component="cond")
+
+require(AICcmodavg)
+require(performance)
+require(DHARMa)
+diagnose(hurdle_Model_repeated_SLAa)
+
+plotQQunif(hurdle_Model_repeated_SLAa)
+plotResiduals(hurdle_Model_repeated_SLAa)
+
+summary(hurdle_Model_repeated_SLAa)
+
+
+library(ggeffects)
+
+plot(ggpredict(hurdle_Model_repeated_SLAa, terms = "elev"))
+
+result <- ggpredict(hurdle_Model_repeated_SLAa, c("s_SLA","treatment"))
+plot(result)
+
+#damage
+
+hurdle_Model_repeated_SLAa <- glmmTMB(fruit_length ~LAR_avg_prop*s_SLA+season + (1|block)+ (1| genotype)+ (1| exp_ID), data=selection, zi=~LAR_avg_prop*s_SLA+season + (1|block)+ (1| genotype)+ (1| exp_ID),family=ziGamma(link="log"))
+
+##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows significiant source elevation.
+Anova(hurdle_Model_repeated_SLAa,type="III", component="zi")
+##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
+Anova(hurdle_Model_repeated_SLAa,type="III", component="cond")
+
+require(AICcmodavg)
+require(performance)
+require(DHARMa)
+diagnose(hurdle_Model_repeated_SLAa)
+
+plotQQunif(hurdle_Model_repeated_SLAa)
+plotResiduals(hurdle_Model_repeated_SLAa)
+
+summary(hurdle_Model_repeated_SLAa)
+
+
+library(ggeffects)
+
+plot(ggpredict(hurdle_Model_repeated_SLAa, terms = "elev"))
+
+result <- ggpredict(hurdle_Model_repeated_SLAa, c("s_SLA","LAR_avg_prop"))
+plot(result)
+
+
+
+
+#### individual years ####
+
 
 SLA_data_S1 $s_LAR_avg_S1_prop<-scale(SLA_data_S1$LAR_avg_S1_prop,center=TRUE, scale=TRUE)
 SLA_data_S1 $s_S1_SLA_include<-scale(SLA_data_S1$S1_SLA_include,center=TRUE, scale=TRUE)
