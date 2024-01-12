@@ -69,9 +69,6 @@ grasshopper $treat<-interaction(grasshopper$Herbivore, grasshopper$Treatment,sep
 
 grasshopper <- filter(grasshopper, Exclude == "Include")
 
-#if trying only in herbivore treatment
-
-#herbivore_only <- filter(grasshopper, Herbivore == "Grasshopper")
 
 #*******************************************************************************
 #### watering treatment effect #####
@@ -128,7 +125,7 @@ ggplot(vwc_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
 #### 1.Fitness #####
 #*******************************************************************************
 
-## Hurdle model ####
+##### Hurdle model ####
 
 
 hurdle_Model <- glmmTMB(Mature_length_siliques ~Treatment*S_elev*Herbivore+S_year + (1|PlantID)+ (1| population)+ (1| Cage_Block), data=grasshopper, zi=~Treatment*S_elev*Herbivore+S_year + (1|PlantID)+ (1| population)+ (1| Cage_Block),family=ziGamma(link="log"))
@@ -163,7 +160,7 @@ summary(hurdle_Model)
 
 
 
-## Probability of reproduction ####
+##### Probability of reproduction ####
 
 
 grasshopper_pf= ggplot(grasshopper, aes(x= elev_km,y= Reproduced, group= Herbivore, 
@@ -173,7 +170,7 @@ grasshopper_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = e
                            panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ Treatment, scales="free_x") +scale_colour_manual(values = c( "#6699cc","#882255"), name = "Herbivore treatment", labels = c("No Herbivores","Herbivorized"))
 
 
-####treatment####
+########treatment####
 
 mod_repro <-glmmTMB(Reproduced~S_elev*Treatment*Herbivore*S_year+(1|Cage_Block)+(1|PlantID)+(1|population),data=grasshopper,family=binomial(link="logit"))
 
@@ -213,7 +210,7 @@ ggplot(repro_df, aes(x = Herbivore, y = fit.c_trans, group = Herbivore)) +
   theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "none") 
 
-## fecundity ####
+#### fecundity ####
 
 repro <- filter(grasshopper, Reproduced == 1 )
 hist(repro$Mature_length_siliques)
@@ -238,7 +235,7 @@ ggplot(repro, aes(x = Treatment, y = Mature_length_siliques, group = Treatment))
   theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "left") 
 
-#### treatment####
+####### treatment####
 mod_fecundity <- glmmTMB (Mature_length_siliques ~ S_elev*Treatment*Herbivore+S_year  + (1|Cage_Block)+(1|population)+(1|PlantID), family=Gamma(link="log"), data = repro)
 
 
@@ -272,7 +269,7 @@ ggplot(fecundity_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
 
 
 #*******************************************************************************
-#### 1.leaf damage across treatments #####
+#### 2.leaf damage across treatments #####
 #*******************************************************************************
 
 #repeated measures with average damage data across years 
@@ -447,7 +444,7 @@ LAR_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 
-####repeated measures with all damage data####
+#####repeated measures with all damage data####
 
 
 #reformat datafile
@@ -585,12 +582,105 @@ LAR_fig =ggplot(newdf2,aes(x= elev_km,y= fit.c_trans,shape= Herbivore, linetype=
 LAR_fig
 
 
-
-
-
 #*******************************************************************************
-#### 2.leaf traits #####
+#### 3. traits #####
 #*******************************************************************************
+
+##### Flowering time  ####
+
+###### Snowmelt FT ####
+
+Snow_FT_fig =ggplot(grasshopper,aes(x= elev_km,y= Snowmelt_Date_flowering,shape= treat, linetype= treat,color= treat, group= treat)) + 
+  
+  geom_point(aes(shape= treat),size=4)+scale_shape_manual(values = c(0,2,15,17)) +scale_x_continuous("Elevation (km)")+ scale_y_continuous("Day of Flowering (Snowmelt)") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c("dotdash", "dotdash","solid","solid"))+
+  
+  #geom_line(aes(y= fit.m_trans, lty= Herbivore), size=0.8) +
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255","lightblue","darkred"))
+
+Snow_FT_fig
+
+
+SFT_box<-ggplot(grasshopper, aes(x = Herbivore, y = Snowmelt_Date_flowering, fill = Treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Day of Flowering (Snowmelt)") +
+  geom_point(pch = 21, position = position_jitterdodge())
+
+SFT_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                                axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper exclosure", "grasshopper enclosure")) +  scale_fill_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+# actual model
+
+SFT_RM <- lmer(Snowmelt_Date_flowering ~ Treatment*Herbivore*S_elev*S_year+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+
+plot(SFT_RM)
+
+Anova(SFT_RM, type = "III") # elevation is significant, not year
+
+library(ggeffects)
+
+SFT_df <- ggpredict(SFT_RM, c("S_elev","Treatment","Herbivore"))
+
+pSFT_fig =ggplot(SFT_df,aes(x= x,y= predicted,shape= group, linetype= group,color= group, group= group)) + 
+  
+  scale_x_continuous("Elevation (km)")+ scale_y_continuous("Day of Flowering (Snowmelt)") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c(1:2))+
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("darkred","lightblue"))+ facet_grid( ~ facet)
+
+pSFT_fig
+
+
+
+##### ordinal floweringtime ####
+
+
+FT_fig =ggplot(grasshopper,aes(x= elev_km,y= Ordinal_Date_flowering,shape= treat, linetype= treat,color= treat, group= treat)) + 
+  
+  geom_point(aes(shape= treat),size=4)+scale_shape_manual(values = c(0,2,15,17)) +scale_x_continuous("Elevation (km)")+ scale_y_continuous("Day of Flowering (Ordinal)") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c("dotdash", "dotdash","solid","solid"))+
+  
+  #geom_line(aes(y= fit.m_trans, lty= Herbivore), size=0.8) +
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255","lightblue","darkred"))
+
+FT_fig
+
+
+FT_box<-ggplot(grasshopper, aes(x = Herbivore, y = Ordinal_Date_flowering, fill = Treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Day of Flowering (Ordinal)") +
+  geom_point(pch = 21, position = position_jitterdodge())
+
+FT_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                             panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper exclosure", "grasshopper enclosure")) +  scale_fill_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+# actual model
+
+FT_RM <- lmer(Ordinal_Date_flowering ~ Treatment*Herbivore*S_elev*S_year+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+
+plot(FT_RM)
+
+Anova(FT_RM, type = "III") # elevation is significant, not year
+
+library(ggeffects)
+
+FT_df <- ggpredict(FT_RM, c("S_elev","Treatment","Herbivore"))
+
+pFT_fig =ggplot(FT_df,aes(x= x,y= predicted,shape= group, linetype= group,color= group, group= group)) + 
+  
+  scale_x_continuous("Elevation (km)")+ scale_y_continuous("Day of Flowering (Ordinal)") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c(1:2))+
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("darkred","lightblue"))+ facet_grid( ~ facet)
+
+pFT_fig
+
+
+
+
+
+##### Leaf traits ####
+
+###### SLA  ####
 
 
 
