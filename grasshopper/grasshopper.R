@@ -127,8 +127,39 @@ ggplot(vwc_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
 
 ##### Hurdle model ####
 
+#read in data 
+grasshopperLF <- read.csv("Grasshopper_lifetimefitness.csv")
 
-hurdle_Model <- glmmTMB(Mature_length_siliques ~Treatment*S_elev*Herbivore+S_year + (1|PlantID)+ (1| population)+ (1| Cage_Block), data=grasshopper, zi=~Treatment*S_elev*Herbivore+S_year + (1|PlantID)+ (1| population)+ (1| Cage_Block),family=ziGamma(link="log"))
+sapply(grasshopperLF,class)
+##Some  variables are being read as characters not factors. Let's fix that
+grasshopperLF$Genotype<-as.factor(grasshopperLF$Genotype)
+grasshopperLF$Treatment<-as.factor(grasshopperLF$Treatment)
+grasshopperLF$Herbivore<-as.factor(grasshopperLF$Herbivore)
+grasshopperLF $PlantID <-as.factor(grasshopperLF $PlantID)
+grasshopperLF $Cage_Block <-as.factor(grasshopperLF $Cage_Block)
+
+##Change the baseline for treatment
+grasshopperLF $Treatment <-factor(grasshopperLF $Treatment, levels = c("Control", "watered"))
+
+
+##This standardizes source elevation to a mean of 0 and standard deviation of 1, which is often necessary for model convergence
+grasshopperLF $S_elev<-scale(grasshopperLF $elevation,center=TRUE, scale=TRUE)
+
+
+
+#This rescales source elevation from meters to km
+grasshopperLF$elev_km<-grasshopperLF $elevation/1000
+
+
+#Let's concatenate herbivore and watering treatments, which is helpful for some models.
+grasshopperLF $treat<-interaction(grasshopperLF$Herbivore, grasshopperLF$Treatment,sep = "_")
+
+
+#grasshopper <- filter(grasshopper, Exclude == "Include")
+
+
+
+hurdle_Model <- glmmTMB(total_silique_length ~Treatment*S_elev*Herbivore + (1|PlantID)+ (1| Genotype)+ (1| Cage_Block), data=grasshopperLF, zi=~Treatment*S_elev*Herbivore + (1|PlantID)+ (1| Genotype)+ (1| Cage_Block),family=ziGamma(link="log"))
 
 
 ##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows significiant source elevation.
@@ -157,13 +188,10 @@ summary(hurdle_Model)
 
 
 
-
-
-
 ##### Probability of reproduction ####
 
 
-grasshopper_pf= ggplot(grasshopper, aes(x= elev_km,y= Reproduced, group= Herbivore, 
+grasshopper_pf= ggplot(grasshopperLF, aes(x= elev_km,y= reproduced, group= Herbivore, 
                        colour= Herbivore))+geom_point(size=5) + scale_y_continuous("Probability of Reproduction")+ scale_x_continuous("Source Elevation")  
 grasshopper_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
@@ -212,17 +240,17 @@ ggplot(repro_df, aes(x = Herbivore, y = fit.c_trans, group = Herbivore)) +
 
 #### fecundity ####
 
-repro <- filter(grasshopper, Reproduced == 1 )
-hist(repro$Mature_length_siliques)
+repro <- filter(grasshopperLF, reproduced == 1 )
+hist(repro$total_silique_length)
 
-grasshopper_f= ggplot(repro, aes(x= elev_km,y= Mature_length_siliques, group= Treatment, 
+grasshopper_f= ggplot(repro, aes(x= elev_km,y= total_silique_length, group= Treatment, 
                                         colour= Treatment))+geom_point(size=5) + scale_y_continuous("Mature Length Siliques")+ scale_x_continuous("Source Elevation")  
 grasshopper_f + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
                                     axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
                                     panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ Herbivore, scales="free_x") +scale_colour_manual(values = c( "#6699cc","#882255"), name = "Watering treatment", labels = c("Ample Water","Water Restricted"))
 
 
-ggplot(repro, aes(x = Treatment, y = Mature_length_siliques, group = Treatment)) +
+ggplot(repro, aes(x = Treatment, y = total_silique_length, group = Treatment)) +
   geom_violin(aes(fill = Treatment), alpha = 0.95, trim = T) +
   geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
   stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
@@ -236,7 +264,7 @@ ggplot(repro, aes(x = Treatment, y = Mature_length_siliques, group = Treatment))
   theme(legend.position = "left") 
 
 ####### treatment####
-mod_fecundity <- glmmTMB (Mature_length_siliques ~ S_elev*Treatment*Herbivore+S_year  + (1|Cage_Block)+(1|population)+(1|PlantID), family=Gamma(link="log"), data = repro)
+mod_fecundity <- glmmTMB (total_silique_length ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype)+(1|PlantID), family=Gamma(link="log"), data = repro)
 
 
 Anova(mod_fecundity,type="III") #signficiant watered x herbivore treatment
@@ -266,6 +294,34 @@ ggplot(fecundity_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
   theme(legend.position = "none") 
 
 
+mod_fecundity_num <- glmmTMB (total_silique_number ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype)+(1|PlantID), family=Gamma(link="log"), data = repro)
+
+
+Anova(mod_fecundity_num,type="III") #signficiant watered x herbivore treatment
+
+summary(mod_fecundity_num)
+
+fecundity_num_df <- repro %>% 
+  
+  mutate(fit.m = predict(mod_fecundity_num, re.form = NA),
+         
+         fit.c = predict(mod_fecundity_num, re.form = NULL), #all random effects
+         
+         resid = residuals(mod_fecundity_num))
+
+
+ggplot(fecundity_num_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
+  geom_violin(aes(fill = Treatment), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+  facet_grid(~ Herbivore) +
+  theme_light() +
+  scale_fill_manual(values = c("#882255","#6699cc")) +
+  labs(y = "Mature Number Siliques") +
+  labs(x = "Watering Treatment") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
 
 
 #*******************************************************************************
@@ -535,6 +591,7 @@ LAR_data $census1 <-as.factor(LAR_data $census)
 
 Mod1<- gamlss (formula= y_beta ~S_elev*Treatment*Herbivore*year+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 summary(Mod1)
+drop1(Mod1)
 
 
 # from Jill's email on 1/4/2024
@@ -544,6 +601,15 @@ summary(Mod1)
 
 Mod2<- gamlss (formula= y_beta ~S_elev*Treatment*Herbivore+S_year+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 summary(Mod2)
+drop1(Mod2)
+
+Mod2b<- gamlss (formula= y_beta ~Treatment*Herbivore+S_elev*Treatment+S_elev*Herbivore+S_year+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+summary(Mod2b)
+drop1(Mod2b)
+
+Mod2c<- gamlss (formula= y_beta ~Treatment+Herbivore+S_elev+S_year+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+summary(Mod2c)
+drop1(Mod2c)
 
 
 #pull the fitted values out and plot them in ggplot
@@ -660,7 +726,7 @@ FT_RM <- lmer(Ordinal_Date_flowering ~ Treatment*Herbivore*S_elev*S_year+(1|Plan
 
 plot(FT_RM)
 
-Anova(FT_RM, type = "III") # elevation is significant, not year
+Anova(FT_RM, type = "III") # 
 
 library(ggeffects)
 
@@ -673,9 +739,6 @@ pFT_fig =ggplot(FT_df,aes(x= x,y= predicted,shape= group, linetype= group,color=
   theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("darkred","lightblue"))+ facet_grid( ~ facet)
 
 pFT_fig
-
-
-
 
 
 ##### Leaf traits ####
