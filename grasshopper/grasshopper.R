@@ -2,7 +2,7 @@
 #### PURPOSE:Examine fitness, traits in response to water availability and herbivory .
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 10 jan 24
+#### DATE LAST MODIFIED: 15 jan 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -30,7 +30,7 @@ setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experi
 
 
 #read in data 
-grasshopper <- read.csv("Grasshopper_fulldata_long_05Jan24.csv")
+grasshopper <- read.csv("Grasshopper_fulldata_long_15Jan24.csv")
 
 sapply(grasshopper,class)
 ##Some  variables are being read as characters not factors. Let's fix that
@@ -53,15 +53,11 @@ grasshopper $S_elev<-scale(grasshopper $elevation,center=TRUE, scale=TRUE)
 ##This standardizes initial plant size (measured as diameter in mm)  to a mean of 0 and standard deviation of 1 for use as a covariate in fitness models
 grasshopper $S_initdiam<-scale(grasshopper $init.diam,center=TRUE, scale=TRUE)
 
-#This rescales year
-grasshopper $S_year<-scale(grasshopper $year,center=TRUE, scale=TRUE)
-
+#This rescales year, jill mentioned not to use this
+# grasshopper $S_year<-scale(grasshopper $year,center=TRUE, scale=TRUE)
 
 #This rescales source elevation from meters to km
 grasshopper$elev_km<-grasshopper $elevation/1000
-
-#Let's concatenate cage and block to reduce nesting necessary for random effects.
-grasshopper $block<-interaction(grasshopper$Cage, grasshopper$Block,sep = "_")
 
 #Let's concatenate herbivore and watering treatments, which is helpful for some models.
 grasshopper $treat<-interaction(grasshopper$Herbivore, grasshopper$Treatment,sep = "_")
@@ -84,7 +80,7 @@ VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_l
                                panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Ample water","Water-restricted")) +  scale_fill_manual(values = c( "lightblue","#CC79A7"))
 
 
-VWC_repeated <- lmer(avg_vwc~ Treatment*Herbivore*S_year + (1|Cage_Block), data=grasshopper )
+VWC_repeated <- lmer(avg_vwc~ Treatment*Herbivore*year_num + (1|Cage_Block), data=grasshopper )
 
 visreg(VWC_repeated, 'Treatment', type="conditional", 
        scale = "response", 
@@ -115,7 +111,7 @@ ggplot(vwc_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
   theme_light() +
   scale_fill_manual(values = c("cadetblue2", "brown1")) +
   labs(y = "Volumetric Water Content") +
-  labs(x = "") +
+  labs(x = "Watering Treatment") +
   theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "none") 
 
@@ -154,15 +150,16 @@ grasshopperLF$elev_km<-grasshopperLF $elevation/1000
 #Let's concatenate herbivore and watering treatments, which is helpful for some models.
 grasshopperLF $treat<-interaction(grasshopperLF$Herbivore, grasshopperLF$Treatment,sep = "_")
 
+#filter out the two plants that flowered in the first season
+grasshopperLF <- filter(grasshopperLF, reproduced_2021 == 0)
 
-#grasshopper <- filter(grasshopper, Exclude == "Include")
+hurdle_Model <- glmmTMB(total_silique_length ~Treatment*S_elev*Herbivore + (1| Genotype)+ (1| Cage_Block), data=grasshopperLF, zi=~Treatment*S_elev*Herbivore + (1| Genotype)+ (1| Cage_Block),family=ziGamma(link="log"))
 
+#Warning message:
+#In fitTMB(TMBStruc) :
+#  Model convergence problem; non-positive-definite Hessian matrix. See vignette('troubleshooting')
 
-
-hurdle_Model <- glmmTMB(total_silique_length ~Treatment*S_elev*Herbivore + (1|PlantID)+ (1| Genotype)+ (1| Cage_Block), data=grasshopperLF, zi=~Treatment*S_elev*Herbivore + (1|PlantID)+ (1| Genotype)+ (1| Cage_Block),family=ziGamma(link="log"))
-
-
-##This is the ANOVA table for the logistic regression part (probability of reproduction). It shows significiant source elevation.
+##This is the ANOVA table for the logistic regression part (probability of reproduction).
 Anova(hurdle_Model,type="III", component="zi")
 ##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
 Anova(hurdle_Model,type="III", component="cond")
@@ -200,7 +197,7 @@ grasshopper_pf + theme_bw() + theme(text = element_text(size=20),axis.line.x = e
 
 ########treatment####
 
-mod_repro <-glmmTMB(Reproduced~S_elev*Treatment*Herbivore*S_year+(1|Cage_Block)+(1|PlantID)+(1|population),data=grasshopper,family=binomial(link="logit"))
+mod_repro <-glmmTMB(reproduced~S_elev*Treatment*Herbivore+(1|Cage_Block)+(1|Genotype),data=grasshopperLF,family=binomial(link="logit"))
 
 Anova(mod_repro, type="III") #slight significance of treatment*year
 
@@ -264,7 +261,7 @@ ggplot(repro, aes(x = Treatment, y = total_silique_length, group = Treatment)) +
   theme(legend.position = "left") 
 
 ####### treatment####
-mod_fecundity <- glmmTMB (total_silique_length ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype)+(1|PlantID), family=Gamma(link="log"), data = repro)
+mod_fecundity <- glmmTMB (total_silique_length ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype), family=Gamma(link="log"), data = repro)
 
 
 Anova(mod_fecundity,type="III") #signficiant watered x herbivore treatment
@@ -294,7 +291,7 @@ ggplot(fecundity_df, aes(x = Treatment, y = fit.c, group = Treatment)) +
   theme(legend.position = "none") 
 
 
-mod_fecundity_num <- glmmTMB (total_silique_number ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype)+(1|PlantID), family=Gamma(link="log"), data = repro)
+mod_fecundity_num <- glmmTMB (total_silique_number ~ S_elev*Treatment*Herbivore  + (1|Cage_Block)+(1|Genotype), family=Gamma(link="log"), data = repro)
 
 
 Anova(mod_fecundity_num,type="III") #signficiant watered x herbivore treatment
@@ -504,15 +501,12 @@ LAR_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 #reformat datafile
-LAR_data<- grasshopper %>% pivot_longer(cols=c("LAR_census1_2021","LAR_census2_2021","LAR_census3_2021","LAR_census3_2022","LAR_census4_2022","LAR_census6_2022","LAR_census8_2022","LAR_census11_2022","LAR_census14_2022","LAR_census5_2023","LAR_census7_2023"),
-                                 names_to='exposure',
-                                 values_to='LAR')
 
 LAR_data<- grasshopper %>% pivot_longer(cols=c("LAR_1","LAR_2","LAR_3","LAR_4","LAR_5","LAR_6"),
                                         names_to='census',
                                         values_to='LAR')
 
-LAR_data <- dplyr::select(LAR_data, LAR, elevation, Genotype, population, Cage, Treatment, Herbivore, Block, PlantID, init.diam, S_initdiam, Cage_Block, elev_km, S_elev, treat, S_year,census, year)
+LAR_data <- dplyr::select(LAR_data, LAR, elevation, Genotype, population, Cage, Treatment, Herbivore, Block, PlantID, init.diam, S_initdiam, Cage_Block, elev_km, S_elev, treat,census, year_num)
 
 LAR_data$census[LAR_data$census == "LAR_1"] <- "1"
 LAR_data$census[LAR_data$census == "LAR_2"] <- "2"
@@ -523,7 +517,7 @@ LAR_data$census[LAR_data$census == "LAR_6"] <- "6"
 
 LAR_data $census <-as.numeric(LAR_data $census)
 
-LAR_data $year <-as.numeric(LAR_data $year)
+LAR_data $year_num <-as.numeric(LAR_data $year_num)
 
 
 LAR_data$LAR_prop<-LAR_data $LAR/100
@@ -553,7 +547,7 @@ max(LAR_data $y_beta)
 #Then, the analysis for Treatment/Herbivore
 
 library(betareg)
-beta_modelb<- betareg ( y_beta ~S_elev*Treatment*Herbivore+year, data=LAR_data)
+beta_modelb<- betareg ( y_beta ~S_elev*Treatment*Herbivore+year_num, data=LAR_data)
 Anova(beta_modelb,type="III")
 
 visreg(beta_modelb, 'S_elev', by= "Herbivore", overlay = TRUE, type="conditional", 
@@ -599,7 +593,7 @@ drop1(Mod1)
 
 ##### LAR Model to use says Jill ####
 
-Mod2<- gamlss (formula= y_beta ~S_elev*Treatment*Herbivore+S_year+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+Mod2<- gamlss (formula= y_beta ~S_elev*Treatment*Herbivore+year_num+ random(census1) + random(PlantID)+ random(Cage_Block)+random(population),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 summary(Mod2)
 drop1(Mod2)
 
@@ -656,7 +650,11 @@ LAR_fig
 
 ###### Snowmelt FT ####
 
-Snow_FT_fig =ggplot(grasshopper,aes(x= elev_km,y= Snowmelt_Date_flowering,shape= treat, linetype= treat,color= treat, group= treat)) + 
+#filter out the two plants that flowered in the first season
+grasshopperFT <- filter(grasshopper, year_num != 1)
+
+
+Snow_FT_fig =ggplot(grasshopperFT,aes(x= elev_km,y= Snowmelt_Date_flowering,shape= treat, linetype= treat,color= treat, group= treat)) + 
   
   geom_point(aes(shape= treat),size=4)+scale_shape_manual(values = c(0,2,15,17)) +scale_x_continuous("Elevation (km)")+ scale_y_continuous("Day of Flowering (Snowmelt)") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c("dotdash", "dotdash","solid","solid"))+
   
@@ -667,7 +665,7 @@ Snow_FT_fig =ggplot(grasshopper,aes(x= elev_km,y= Snowmelt_Date_flowering,shape=
 Snow_FT_fig
 
 
-SFT_box<-ggplot(grasshopper, aes(x = Herbivore, y = Snowmelt_Date_flowering, fill = Treatment)) +
+SFT_box<-ggplot(grasshopperFT, aes(x = Herbivore, y = Snowmelt_Date_flowering, fill = Treatment)) +
   geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Day of Flowering (Snowmelt)") +
   geom_point(pch = 21, position = position_jitterdodge())
 
@@ -678,7 +676,7 @@ SFT_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_
 
 # actual model
 
-SFT_RM <- lmer(Snowmelt_Date_flowering ~ Treatment*Herbivore*S_elev*S_year+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+SFT_RM <- lmer(Snowmelt_Date_flowering ~ Treatment*Herbivore*S_elev*year_num+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopperFT)
 
 plot(SFT_RM)
 
@@ -722,7 +720,7 @@ FT_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_l
 
 # actual model
 
-FT_RM <- lmer(Ordinal_Date_flowering ~ Treatment*Herbivore*S_elev*S_year+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+FT_RM <- lmer(Ordinal_Date_flowering ~ Treatment*Herbivore*S_elev*year_num+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
 
 plot(FT_RM)
 
@@ -768,23 +766,85 @@ SLA_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 # damage and VWC 
-SLA_RM <- lmer(rosette_SLA ~ avg_vwc*avg_LAR*S_elev+year+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+SLA_RM <- lmer(rosette_SLA ~ avg_vwc*LAR_1*S_elev+year_num+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
 
 plot(SLA_RM)
 
 Anova(SLA_RM, type = "III") # elevation is significant, not year
 
-visreg(SLA_RM,"elev_km", by="VWC", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
+visreg(SLA_RM,"avg_vwc", by="LAR_1", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
 
-visreg(SLA_RM,"S_elev", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
+visreg(SLA_RM,"avg_LAR", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
 
 
 # treatment and herbivore
-SLA_RMa <- lmer(rosette_SLA ~ Treatment*Herbivore*S_elev*S_year+(1|PlantID) +(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+SLA_RMa <- lmer(rosette_SLA ~ Treatment+Herbivore*S_elev*year_num+(1|PlantID) +(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
 
 plot(SLA_RMa)
 
 Anova(SLA_RMa, type = "III") # elevation, year is significant
 
 visreg(SLA_RMa,"S_elev", by="Treatment", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
+
+
+
+
+ggplot(grasshopper, aes(x = Herbivore, y = rosette_SLA, group = Herbivore)) +
+  geom_violin(aes(fill = Herbivore), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+  facet_grid(~ year) +
+  theme_light() +
+  scale_fill_manual(values = c("ivory", "#117733")) +
+  labs(y = "Probability of Reproduction") +
+  labs(x = "Herbivore Treatment") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
+
+
+###### LWC  ####
+
+
+
+lwc_fig =ggplot(grasshopper,aes(x= elev_km,y= rosette_lwc,shape= treat, linetype= treat,color= treat, group= treat)) + 
+  
+  geom_point(aes(shape= treat),size=4)+scale_shape_manual(values = c(0,2,15,17)) +scale_x_continuous("Elevation (km)")+ scale_y_continuous("Leaf area removed by herbivores") +  geom_smooth(method = "lm", se = TRUE,formula=y~x) +scale_linetype_manual(values=c("dotdash", "dotdash","solid","solid"))+
+  
+  #geom_line(aes(y= fit.m_trans, lty= Herbivore), size=0.8) +
+  
+  theme_bw()+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "bottom")+ scale_color_manual(values=c("#6699cc","#882255","lightblue","darkred"))
+
+lwc_fig
+
+
+lwc_RM_box<-ggplot(grasshopper, aes(x = Herbivore, y = rosette_lwc, fill = Treatment)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Specific Leaf Area") +
+  geom_point(pch = 21, position = position_jitterdodge())
+
+lwc_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                                axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper exclosure", "grasshopper enclosure")) +  scale_fill_manual(values = c( "lightblue","darkred"), name = "Watering treatment", labels = c("Ample water","Water-restricted"))
+
+
+# damage and VWC 
+SLA_RM <- lmer(rosette_lwc ~ avg_vwc*LAR_1*S_elev+year_num+(1|PlantID)+(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+
+plot(SLA_RM)
+
+Anova(SLA_RM, type = "III") # elevation is significant, not year
+
+visreg(SLA_RM,"avg_vwc", by="LAR_1", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
+
+visreg(SLA_RM,"avg_vwc", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
+
+
+# treatment and herbivore
+lwc_RMa <- lmer(rosette_lwc ~ Treatment+Herbivore*S_elev*year_num+Herbivore*I(S_elev^2)*year_num+(1|PlantID) +(1|population)+(1|Cage_Block),control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = grasshopper)
+
+plot(lwc_RMa)
+
+Anova(lwc_RMa, type = "III") # elevation, year is significant
+
+visreg(lwc_RMa,"S_elev",by="Herbivore", overlay=TRUE,   scale = "response", xlab="Source elevation (Km)", ylab="SLA CM3/g ", partial=TRUE,type="conditional",line=list(lty=1:3,col=c("#56B4E9","darkred")), points=list(col=c("#56B4E9","darkred")),fill=list(col=grey(c(1), alpha=0.4)))
 
