@@ -168,11 +168,11 @@ mod_fecundityRM <-glmmTMB (Mature_length_siliques ~S_elev+year_num
 Anova(mod_fecundityRM,type="III")
 
 mod_fecund_selection <-glmmTMB (Mature_length_siliques ~S_elev+year_num
-                           +Water*Herbivore*sleaf
+                           #+Water*Herbivore*sleaf
                            +Water*Herbivore*sLAR 
                            #+Water*Herbivore*sSLA
                            #+Water*Herbivore*sLWC 
-                           +Water*Herbivore*sFP
+                           #+Water*Herbivore*sFP
                            +Water*Herbivore*sduration
                            +Water*Herbivore*sheight  
                            +Water*Herbivore*speak 
@@ -192,6 +192,17 @@ mod_fecunditytreat <-glmmTMB (Mature_length_siliques ~S_elev+year_num
                            +treat*speak 
                            + (1|Cage_Block)+(1|Genotype)+(1|PlantID), family=Gamma(link="log"), data = traitdatRepro)
 Anova(mod_fecunditytreat,type="III")
+library(DHARMa)
+simoutput<- simulateResiduals(fittedmodel= mod_fecund_selection, plot = T )
+
+simulationOutput <- simulateResiduals( mod_fecund_selection, plot = T) 
+
+visreg(mod_fecund_selection,"sduration", by="Herbivore",cond=list(Water="Supplemental"), overlay=FALSE, scale = "response", xlab="flowering time (standardized)", ylab="Seed count, among individuals that set seeds", line=list(col="black"),partial=FALSE,points=list(cex=1.2, col="black"))
+visreg(mod_fecund_selection,"sduration", by="Herbivore",cond=list(Water="Restricted"), overlay=FALSE, scale = "response", xlab="flowering time (standardized)", ylab="Seed count, among individuals that set seeds", line=list(col="black"),partial=FALSE,points=list(cex=1.2, col="black"))
+
+
+visreg(mod_fecund_selection,"speak", by="Herbivore",cond=list(Water="Supplemental"), overlay=FALSE, scale = "response", xlab="flowering time (standardized)", ylab="Seed count, among individuals that set seeds", line=list(col="black"),partial=FALSE,points=list(cex=1.2, col="black"))
+visreg(mod_fecund_selection,"speak", by="Herbivore",cond=list(Water="Restricted"), overlay=FALSE, scale = "response", xlab="flowering time (standardized)", ylab="Seed count, among individuals that set seeds", line=list(col="black"),partial=FALSE,points=list(cex=1.2, col="black"))
 
 
 # flowering duration
