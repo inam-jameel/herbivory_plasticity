@@ -1,3 +1,7 @@
+# this file looks like was plotting LAR using the 2021 field data. should not be used, and probably deleted
+
+#status of this file is unknown. there is code at the very bottem (250+) that i used to make figures for BT effectiveness. Additionally, the code to get the lsmeans (Lsmeans_LAR) is found at 18
+
 #libraries
 library(dplyr)
 library(ggplot2)
@@ -19,7 +23,7 @@ library(effects)
 
 setwd("~/Desktop/Anderson_data/herbivory/data/field/2021_herbivory/")
 
-#status of this file is unknown. there is code at the very bottem (250+) that i used to make figures for BT effectiveness. Additionally, the code to get the lsmeans (Lsmeans_LAR) is found at 187
+7
 
 #### merging data ####
 #schofield <- read.csv("Field2021_schofield.csv")

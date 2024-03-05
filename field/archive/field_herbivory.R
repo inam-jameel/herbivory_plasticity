@@ -1,3 +1,8 @@
+# this file looks like i tried to do some LAR analyses using the 2021 field data. should not be used, and probably deleted
+
+
+
+
 #libraries
 library(dplyr)
 library(ggplot2)

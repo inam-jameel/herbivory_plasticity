@@ -1,3 +1,6 @@
+#looks like i had actual anaylses witht eh 2021 field data here. I use the 2021 summary file. should refer back to this for the code if needed.
+
+
 #libraries
 library(dplyr)
 library(ggplot2)

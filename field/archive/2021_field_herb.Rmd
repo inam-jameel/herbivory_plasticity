@@ -5,6 +5,7 @@ date: "9/15/2021"
 output: pdf_document
 ---
 
+this markdown file is pretty old. I do not use a summary file. probably should be deleted
 ```{r setup environment, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
 
