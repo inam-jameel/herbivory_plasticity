@@ -1,7 +1,7 @@
 ######## PROJECT: grasshopper experiment: variation in herbivore damage due to water availability 
 #### PURPOSE:Examine fitness, traits in response to water availability and herbivory .
-#### AUTHORS: Inam Jameel & Jill Anderson
-#### DATE LAST MODIFIED: 14 feb 24
+#### AUTHORS: Jill Anderson
+#### DATE LAST MODIFIED: 7 March 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -22,109 +22,17 @@ require(gamlss) # for running phenology model
 require(broom.mixed) #for making tables
 require(multcomp) #for pairwise comparisons
 require(vioplot) #for violin plots
-require(DHARMa) #for model diagnostics
+library(DHARMa)
+library(ggeffects)
 
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
-#setwd("~/Documents/personnel/Jameel/grasshopper")
-
-
-#*******************************************************************************
-#### Treatment Water effect #####
-#*******************************************************************************
-
-#just looking at cage/block. no plants
-
-#read in data 
-VWC <- read.csv("Grasshopper_VWC.csv",stringsAsFactors=T)
-VWC $Year <-as.factor(VWC $Year)
-
-
-VWC_gg<-ggplot(VWC, aes(x = Water, y = avg_vwc, fill = Water,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Watering Water")+ scale_y_continuous("Volumetric Water Content") +
-  geom_point(pch = 21, position = position_jitterdodge())
-VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Supplemental water","Water-restricted")) +  scale_fill_manual(values = c( "lightblue","#CC79A7"))
-
-
-# model with average VWC across years
-VWC_repeated <- lmer(avg_vwc~ Water*Year+Herbivore + (1|Cage_Block), data=VWC )
-VWC_repeateda <- glmmTMB(avg_vwc ~Water*Year+Herbivore + (1|Cage_Block), data= VWC,family=Gamma(link="log"))
-
-
-Anova(VWC_repeateda, type = "III")
-
-summary(glht(VWC_repeateda, linfct = mcp(Water = "Tukey")))
-
-vwc_df <- VWC %>% 
-  
-  mutate(fit.m = predict(VWC_repeateda, re.form = NA),
-         
-         fit.c = predict(VWC_repeateda, re.form = NULL), #all random effects
-         
-         resid = residuals(VWC_repeateda))
-
-
-vioplot(fit.c ~ Water, data= vwc_df, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,30),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Watering Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-#model with multiple censuses across years
-
-#reformat datafile
-
-VWC_data<- VWC %>% pivot_longer(cols=c("VWC_1","VWC_2","VWC_3","VWC_4","VWC_5","VWC_6","VWC_7","VWC_8"),
-                                        names_to='census',
-                                        values_to='VWC')
-
-VWC_data$census[VWC_data$census == "VWC_1"] <- "1"
-VWC_data$census[VWC_data$census == "VWC_2"] <- "2"
-VWC_data$census[VWC_data$census == "VWC_3"] <-"3"
-VWC_data$census[VWC_data$census == "VWC_4"] <- "4"
-VWC_data$census[VWC_data$census == "VWC_5"] <- "5"
-VWC_data$census[VWC_data$census == "VWC_6"] <- "6"
-VWC_data$census[VWC_data$census == "VWC_7"] <- "7"
-VWC_data$census[VWC_data$census == "VWC_8"] <- "8"
-
-VWC_data $census <-as.factor(VWC_data $census)
-
-VWC_data $Year <-as.factor(VWC_data $Year)
-
-
-VWC_mod <- glmmTMB(VWC ~Water*Year+Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
-
-
-Anova(VWC_mod,type="III")
-summary(glht(VWC_mod, linfct = mcp(Water = "Tukey")))
-
-
-
-vioplot(VWC ~ Water, data= VWC_data, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,40),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
-  
-  facet_grid(~ Year) +
-  theme_light() +
-  scale_fill_manual(values = c("#CC79A7","lightblue")) +
-  labs(y = "Volumetric Water Content") + 
-  labs(x = "Watering Treatment") +
-  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
-
-######################## beginning of analysis ####
-
-
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
-#setwd("~/Documents/personnel/Jameel/grasshopper")
+##setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
+setwd("~/Documents/personnel/Jameel/grasshopper")
 
  #this is where you specify the folder where you have the data on your computer
 
 
 #read in data 
-grasshopper <- read.csv("Grasshopper_fulldata_long.csv",stringsAsFactors=T)
+grasshopper <- read.csv("Grasshopper_fulldata_long_updated_6March24.csv",stringsAsFactors=T)
 
 sapply(grasshopper,class)
 ##Some  variables are being read as characters not factors. Let's fix that
@@ -173,9 +81,14 @@ plot(grasshopper$rosette_lwc~grasshopper$bolt_lwc)
 
 mod1<-lm(grasshopper$rosette_succulence~grasshopper$bolt_succulence)
 summary(mod1)
+cor.test(grasshopper$rosette_succulence,grasshopper$bolt_succulence, method = c("pearson"), use = "complete.obs")
 
-LAR_Mod<-lm(grasshopper$rosette_SLA~grasshopper$bolt_SLA)
-summary(LAR_Mod)
+
+SLA_Mod<-lm(grasshopper$rosette_SLA~grasshopper$bolt_SLA)
+summary(SLA_Mod)
+cor.test(grasshopper$rosette_SLA,grasshopper$bolt_SLA, method = c("pearson"), use = "complete.obs")
+
+
 
 mod3<-lm(grasshopper$rosette_lwc~grasshopper$bolt_lwc)
 summary(mod3)
@@ -193,81 +106,140 @@ grasshopper$flowering_duration<-(grasshopper $Date_silique - grasshopper $FT_Adj
 grasshopper_exclude <- filter(grasshopper, Exclude == "Include")
 
 
-
 #*******************************************************************************
-####  Survival #####
+#### Treatment Water effect #####
 #*******************************************************************************
-##survA <- glmmTMB(Season_survival ~ S_initdiam +Water*Herbivore * S_elev +Water*Herbivore * I(S_elev^2) +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data=grasshopper,family=binomial(link="logit"))
-survA <- glmmTMB(Season_survival ~ S_initdiam +Water*Herbivore * S_elev +I(S_elev^2) +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data=grasshopper_exclude,family=binomial(link="logit"))
-Anova(survA, type="III")
 
-surv <- glmmTMB(Season_survival ~ S_initdiam+ Water*Herbivore * S_elev *year+Water*Herbivore * I(S_elev^2) +(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopper_exclude,family=binomial(link="logit"))
-Anova(surv, type="III")
+#just looking at cage/block. no plants
 
-library(effects)
-library(ggeffects)
+#read in data 
+VWC <- read.csv("Grasshopper_VWC.csv",stringsAsFactors=T)
+VWC $Year <-as.factor(VWC $Year)
 
-cols=c("#CC79A7","blue")
-pred_FT <- ggpredict(surv, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
-phen_plot <-plot(pred_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Survival")
-phen_plot
 
+VWC_gg<-ggplot(VWC, aes(x = Water, y = avg_vwc, fill = Water,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Watering Water")+ scale_y_continuous("Volumetric Water Content") +
+  geom_point(pch = 21, position = position_jitterdodge())
+VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Supplemental water","Water-restricted")) +  scale_fill_manual(values = c( "lightblue","#CC79A7"))
+
+
+# model with average VWC across years
+VWC_repeated <- lmer(avg_vwc~ Water*Year+Herbivore + (1|Cage_Block), data=VWC )
+VWC_repeateda <- glmmTMB(avg_vwc ~Water*Year+Herbivore + (1|Cage_Block), data= VWC,family=Gamma(link="identity"))
+
+
+Anova(VWC_repeateda, type = "III")
+
+summary(glht(VWC_repeateda, linfct = mcp(Water = "Tukey")))
+
+vwc_df <- VWC %>% 
+  
+  mutate(fit.m = predict(VWC_repeateda, re.form = NA),
+         
+         fit.c = predict(VWC_repeateda, re.form = NULL), #all random effects
+         
+         resid = residuals(VWC_repeateda))
+
+
+vioplot(fit.c ~ Water, data= vwc_df, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,30),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Watering Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
+
+
+#model with multiple censuses across years
+
+#reformat datafile
+
+VWC_data<- VWC %>% pivot_longer(cols=c("VWC_1","VWC_2","VWC_3","VWC_4","VWC_5","VWC_6","VWC_7","VWC_8"),
+                                names_to='census',
+                                values_to='VWC')
+
+VWC_data$census[VWC_data$census == "VWC_1"] <- "1"
+VWC_data$census[VWC_data$census == "VWC_2"] <- "2"
+VWC_data$census[VWC_data$census == "VWC_3"] <-"3"
+VWC_data$census[VWC_data$census == "VWC_4"] <- "4"
+VWC_data$census[VWC_data$census == "VWC_5"] <- "5"
+VWC_data$census[VWC_data$census == "VWC_6"] <- "6"
+VWC_data$census[VWC_data$census == "VWC_7"] <- "7"
+VWC_data$census[VWC_data$census == "VWC_8"] <- "8"
+
+VWC_data $census <-as.factor(VWC_data $census)
+
+VWC_data $Year <-as.factor(VWC_data $Year)
+
+
+VWC_mod <- glmmTMB(VWC ~Water*Year*Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
+
+simulationOutput <- simulateResiduals(fittedModel= VWC_mod, plot = T, re.form = NULL,allow.new.levels =TRUE)
+
+
+
+Anova(VWC_mod,type="III")
+summary(glht(VWC_mod, linfct = mcp(Water = "Tukey")))
+
+
+
+vioplot(VWC ~ Water, data= VWC_data, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,40),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Watering treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
+
+
+ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+  facet_grid(~ Year) +
+  theme_light() +
+  scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = "Volumetric Water Content") + 
+  labs(x = "Watering Treatment") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
 
 #*******************************************************************************
 ####  Probability of reproduction #####
 #*******************************************************************************
 grasshopperFT <- filter(grasshopper, year != "2021")
 
-##reproA <- glmmTMB(Reproduced ~ S_initdiam+Water*Herbivore * S_elev +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
-#reproA <- glmmTMB(Reproduced ~ S_initdiam+Water*Herbivore * S_elev+Water*Herbivore * I(S_elev^2) +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
-reproA <- glmmTMB(Reproduced ~ S_initdiam+Water*Herbivore * S_elev+ I(S_elev^2) +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
-Anova(reproA, type="III")
+grasshopperFT_EX <- filter(grasshopper_exclude, year != "2021")
 
-##repro <- glmmTMB(Reproduced ~S_initdiam+ Water*Herbivore * S_elev *year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
-#repro <- glmmTMB(Reproduced ~ S_initdiam+Water*Herbivore * S_elev *year+Water*Herbivore * I(S_elev^2)+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
-repro <- glmmTMB(Reproduced ~S_initdiam+ Water*Herbivore * S_elev *year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
+repro <- glmmTMB(Reproduced_updated ~S_initdiam+ Water*Herbivore * S_elev *year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
 Anova(repro, type="III")
+simulationOutput <- simulateResiduals(fittedModel= repro, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
-emmip(repro, Herbivore ~ year*Water, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Probability of reproduction")+ aes(shape = Water)+theme(legend.position = c(0.8, 0.8))+scale_color_manual(values=cols)+facet_grid(~year)
-
-
+cols=c("#CC79A7","blue")
 emmip(repro, Herbivore ~ year, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Probability of reproduction")+ theme(legend.position = c(0.8, 0.8))+scale_color_manual(values=cols)
 
+
+emmip(repro, Herbivore~ Water |year, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Probability of reproduction")+ aes(shape = Herbivore)+theme(legend.position = c(0.8, 0.8))+scale_color_manual(values=cols)+facet_grid(~year)
 
 
 
 #*******************************************************************************
 ####  Fecundity #####
 #*******************************************************************************
-reproduced<-subset(grasshopperFT, Reproduced=="1")
+reproduced<-subset(grasshopperFT, Reproduced_updated=="1")
 
-#fec <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*S_elev +I(S_elev ^2)*Water*Herbivore +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= reproduced,family=Gamma(link="log"))
-fec <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*S_elev +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= reproduced,family=Gamma(link="log"))
+fec <- glmmTMB(Mature_length_siliques_updated ~S_initdiam+Water*Herbivore* S_elev *year+I(S_elev ^2)*Water*Herbivore *year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= reproduced,family=Gamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+
 Anova(fec,type="III")
 simulationOutput <- simulateResiduals(fittedModel= fec, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
 emmip(fec, Herbivore ~ Water, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Fecundity")+ aes(shape = Water)+theme(legend.position = c(0.5, 0.8))+scale_color_manual(values=cols)
 
-simulationOutput <- simulateResiduals(fittedModel= fec, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-
-
-#fec2 <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*S_elev*year +I(S_elev ^2)*Water*Herbivore +(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= reproduced,family=Gamma(link="log"))
-fec2 <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*S_elev*year  +(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= reproduced,family=Gamma(link="log"))
-Anova(fec2,type="III")
-simulationOutput <- simulateResiduals(fittedModel= fec2, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-
-
+cols=c("#CC79A7","blue")
+pred_fec <- ggpredict(fec, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
+fec_plot <-plot(pred_fec, show_residuals=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Fecundity")+ylim(0,2000)
+fec_plot
 
 #*******************************************************************************
 ####  Hurdle #####
 #*******************************************************************************
 
-##hurdle_ModelLA <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore * S_elev +year+Water*Herbivore * I(S_elev^2)+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT, zi=~Water*Herbivore * S_elev+year+Water*Herbivore * I(S_elev^2)+(1|PlantID) + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
+hurdle_ModelLA <- glmmTMB(Mature_length_siliques_updated ~Water*Herbivore* S_elev *year+I(S_elev ^2)*Water*Herbivore *year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT, zi=~S_initdiam+Water*Herbivore *year * S_elev +(1|PlantID) + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
 
-hurdle_ModelLA <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore * S_elev +year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data=grasshopperFT, zi=~Water*Herbivore * S_elev +year +(1|PlantID) + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
+
 summary(hurdle_ModelLA)
+
 simulationOutput <- simulateResiduals(fittedModel= hurdle_ModelLA, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
 ##This is the ANOVA table for the logistic regression part (probability of reproduction).
@@ -275,153 +247,10 @@ Anova(hurdle_ModelLA,type="III", component="zi")
 ##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
 Anova(hurdle_ModelLA,type="III", component="cond")
 
-
-##hurdle_ModelLA_full <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore * S_elev*year+Water*Herbivore * I(S_elev^2)+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT, zi=~Water*Herbivore * S_elev*year+Water*Herbivore * I(S_elev^2)+(1|PlantID) + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-
-hurdle_ModelLA_full <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore * S_elev*year+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= grasshopperFT, zi=~Water*Herbivore * S_elev*year +(1|PlantID) + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-summary(hurdle_ModelLA_full)
-
-##This is the ANOVA table for the logistic regression part (probability of reproduction).
-Anova(hurdle_ModelLA_full,type="III", component="zi")
-##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
-Anova(hurdle_ModelLA_full,type="III", component="cond")
-simulationOutput <- simulateResiduals(fittedModel= hurdle_ModelLA_full, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-
-#*******************************************************************************
-#### Lifetime Fitness #####
-#*******************************************************************************
-
-#read in data 
-grasshopperLF <- read.csv("Grasshopper_lifetimefitness.csv", stringsAsFactors=T)
-
-sapply(grasshopperLF,class)
-##Change the baseline for Water
-grasshopperLF $Water <-factor(grasshopperLF $Water, levels = c("Control", "watered"))
-grasshopperLF$Cage <-as.factor(grasshopperLF$Cage)
-grasshopperLF$Block <-as.factor(grasshopperLF$Block)
-
-
-##This standardizes source elevation to a mean of 0 and standard deviation of 1, which is often necessary for model convergence
-grasshopperLF $S_elev<-scale(grasshopperLF $elevation,center=TRUE, scale=TRUE)
-
-#This rescales source elevation from meters to km
-grasshopperLF$elev_km<-grasshopperLF $elevation/1000
-#This calculates elevational distance
-grasshopperLF$elev_dist<-grasshopperLF$elev_km - 2.890
-hist(grasshopperLF$elev_dist)
-grasshopperLF $S_initdiam<-scale(grasshopperLF $init.diam,center=TRUE, scale=TRUE)
-
-#Let's concatenate herbivore and watering Waters, which is helpful for some models.
-grasshopperLF $treat<-interaction(grasshopperLF$Herbivore, grasshopperLF$Water,sep = "_")
-##Remove plants inadvertently killed by experimentors or gophers
-grasshopperLF_exclude <- filter(grasshopperLF, Exclude == "Include")
-
-
-
-##### Survival ####
-
-#mod_surv_elevdist <-glmmTMB(Season_survival ~ S_initdiam + elev_dist*Water*Herbivore+ I(elev_dist^2)*Water+(1|Cage_Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-mod_surv_elevdist <-glmmTMB(Season_survival ~ S_initdiam + elev_dist*Water*Herbivore+ I(elev_dist^2)*Water+(1|Cage_Block)+(1|Genotype),data=grasshopperLF,family=binomial(link="logit"))
-Anova(mod_surv_elevdist,type="III")
-simulationOutput <- simulateResiduals(fittedModel= mod_surv_elevdist, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-pred_surv_elevdist <- ggpredict(mod_surv_elevdist, terms = c("elev_dist[all]", "Herbivore","Water"), type = "re", interval ="confidence")
-
-plot(pred_surv_elevdist, show_residuals=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevational distance")+ scale_y_continuous("Probability of survival")
-
-#mod_surv <-glmmTMB(Season_survival ~ S_initdiam +S_elev*Water*Herbivore+I(S_elev^2)*Water+(1|Cage:Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-mod_surv <-glmmTMB(Season_survival ~ S_initdiam +S_elev*Water*Herbivore+I(S_elev^2)*Water+(1|Cage_Block)+(1|Genotype),data=grasshopperLF,family=binomial(link="logit"))
-simulationOutput <- simulateResiduals(fittedModel= mod_surv, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-Anova(mod_surv,type="III")
-
-pred_surv <- ggpredict(mod_surv, terms = c("S_elev[all]", "Herbivore","Water"), type = "re", interval ="confidence")
-
-plot(pred_surv, show_residuals=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevational distance")+ scale_y_continuous("Probability of survival")
-
-
-##### Reproduction ####
-
-#mod_repro_elevdist <-glmmTMB(reproduced ~ S_initdiam + elev_dist*Water*Herbivore+ I(elev_dist^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-
-##mod_repro_elevdist <-glmmTMB(reproduced ~ S_initdiam + elev_dist*Water*Herbivore+ I(elev_dist^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF,family=binomial(link="logit"))
-
-##mod_repro_elevdist <-glmmTMB(reproduced ~ S_initdiam + elev_dist*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-
-mod_repro_elevdist <-glmmTMB(reproduced ~ S_initdiam + elev_dist*Water*Herbivore+ (1|Cage_Block)+(1|Genotype),data= grasshopperLF,family=binomial(link="logit"))
-Anova(mod_repro_elevdist,type="III")
-simulationOutput <- simulateResiduals(fittedModel= mod_repro_elevdist, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-#mod_repro <-glmmTMB(reproduced ~ S_initdiam + S_elev*Water*Herbivore+ I(S_elev ^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-
-##mod_repro <-glmmTMB(reproduced ~ S_initdiam + S_elev*Water*Herbivore+ I(S_elev ^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF,family=binomial(link="logit"))
-
-mod_repro <-glmmTMB(reproduced ~ S_initdiam + S_elev*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= grasshopperLF_exclude,family=binomial(link="logit"))
-
-mod_repro <-glmmTMB(reproduced ~ S_initdiam + S_elev*Water*Herbivore+  (1|Cage_Block)+(1|Genotype),data= grasshopperLF,family=binomial(link="logit"))
-
-
-##### Fecundity, amongst individuals that reproduced ####
-repro <-subset(grasshopperLF_exclude, reproduced=="1")
-
-##fecund_elevdist <-glmmTMB(total_silique_length ~ S_initdiam + elev_dist*Water*Herbivore+ I(elev_dist^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= repro,family=Gamma(link="log"))
-
-fecund_elevdist <-glmmTMB(total_silique_length ~ S_initdiam + elev_dist*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= repro,family=Gamma(link="log"))
-Anova(fecund_elevdist,type="III")
-simulationOutput <- simulateResiduals(fittedModel= fecund_elevdist, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-
-emmip(fecund_elevdist, Water ~ Herbivore, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Fecundity")+ aes(shape = Herbivore)+theme(legend.position = c(0.5, 0.8))+scale_color_manual(values=cols)
-
-
-##fecundity <-glmmTMB(total_silique_length ~ S_initdiam + S_elev*Water*Herbivore+ I(S_elev ^2)*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= repro,family=Gamma(link="log"))
-
-fecundity <-glmmTMB(total_silique_length ~ S_initdiam + S_elev*Water*Herbivore+(1|Cage_Block)+(1|Genotype),data= repro,family=Gamma(link="log"))
-Anova(fecundity,type="III")
-simulationOutput <- simulateResiduals(fittedModel= fecundity, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-emmip(fecundity, Water ~ Herbivore, type="response", CIs=TRUE)+theme_bw()+theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+geom_point(size=3)+ ylab("Fecundity")+ aes(shape = Herbivore)+theme(legend.position = c(0.5, 0.8))+scale_color_manual(values=cols)
-
-
-
-
-##### Hurdle model####
-hurdle_Model <- glmmTMB(total_silique_length ~ S_initdiam +Water*S_elev*Herbivore + (1|Genotype)+ (1|Cage_Block), data=grasshopperLF_exclude, zi=~ S_initdiam +Water*S_elev*Herbivore + (1| Genotype)+ (1| Cage_Block),family=ziGamma(link="log"))
-
-##This is the ANOVA table for the logistic regression part (probability of reproduction).
-Anova(hurdle_Model,type="III", component="zi")
-##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
-Anova(hurdle_Model,type="III", component="cond")
-simulationOutput <- simulateResiduals(fittedModel= hurdle_Model, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-
-
-####HERE 
-cols=c("#56B4E9","#D55E00")
-
-model1_num <- brm(bf(total_silique_number ~ S_initdiam + S_elev*Water*Herbivore + (1|Genotype)+ (1|Cage_Block),hu ~ S_initdiam + S_elev*Water*Herbivore+ (1|Genotype)+ (1|Cage_Block)), data = grasshopperLF, family = hurdle_gamma())
-
-summary(model1_num)
-pred_model1_num <- ggpredict(model1_num, terms = c("S_elev[all]", "Water","Herbivore"))
-
-plot(pred_model1_num, show_residuals=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Number of siliques")
-result_num <- ggpredict(model1_num, c("Herbivore","Water"))
-plot(result_num)
-
-
-model1_length <- brm(bf(total_silique_length ~ S_initdiam + S_elev*Water*Herbivore + (1|Genotype)+ (1|Cage_Block),hu ~ S_initdiam + S_elev*Water*Herbivore+ (1|Genotype)+ (1|Cage_Block)), data = grasshopperLF, family = hurdle_gamma())
-
-summary(model1_length)
-pred_model1_length <- ggpredict(model1_length, terms = c("S_elev[all]", "Water","Herbivore"))
-
-plot(pred_model1_length, show_residuals=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Fecundity (silique length)")
-result_bayes <- ggpredict(model1_length, c("Herbivore","Water"))
-plot(result_bayes)
-
-
-
-
+cols=c("#CC79A7","blue")
+pred_hurdle <- ggpredict(hurdle_ModelLA, terms = c("S_elev[all]", "Water","Herbivore"), type = "zi_random", interval="confidence")
+hurdle_plot <-plot(pred_hurdle, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Fecundity")+ylim(0,2000)
+hurdle_plot
 
 
 #*******************************************************************************
@@ -466,6 +295,7 @@ n<-nrow(LAR_data)
 LAR_data $y_beta<- (LAR_data $LAR_prop*(n-1) + 0.5)/n
 
 hist(LAR_data $y_beta)
+hist(LAR_data $LAR_prop)
 
 #You can check that you no longer have zero values (or values of 1, but I doubt that would be true with your data.
 
@@ -473,6 +303,9 @@ min(LAR_data $y_beta)
 
 max(LAR_data $y_beta)
 
+min(LAR_data $LAR_prop)
+
+max(LAR_data $LAR_prop)
 
 
 LAR_Mod<- gamlss (formula= y_beta ~S_elev*Water*Herbivore+year+ random(census) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
@@ -485,7 +318,7 @@ summary(LAR_Model)
 drop1(LAR_Model)
 
 ##Full models with year crossed with other factors is slightly better
-AIC(LAR_Mod, LAR_Model)
+AIC(LAR_Mod, LAR_Model, c=True)
 
 
 #Subsets of models for drop 1
@@ -540,7 +373,7 @@ LAR_fig + theme_bw() + theme(text = element_text(size=10),axis.line.x = element_
 
 #pull the fitted values out and plot them in ggplot
 
-newdf3 <- LAR_data %>% 
+newdf2 <- LAR_data %>% 
   
   mutate(fit.m = predict(LAR_Model, re.form = NA),
          
@@ -550,14 +383,14 @@ newdf3 <- LAR_data %>%
 
 ##Convert fit.m and fit.c back to the proportional scale
 
-newdf3 $fit.m_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+newdf2 $fit.m_trans<-1/(1+exp(-(newdf2 $fit.m))) 
 
-newdf3 $fit.c_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+newdf2 $fit.c_trans<-1/(1+exp(-(newdf2 $fit.m))) 
 
-newdf3 $resid_trans<-1/(1+exp(-(newdf3 $resid))) 
+newdf2 $resid_trans<-1/(1+exp(-(newdf2 $resid))) 
 
 
-LAR_box <-ggplot(newdf3, aes(x = Herbivore, y = fit.c_trans, fill = Water)) +
+LAR_box <-ggplot(newdf2, aes(x = Herbivore, y = fit.c_trans, fill = Water)) +
   geom_boxplot(outlier.shape = NA) +xlab("Herbivore Water")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
   geom_point(pch = 21, position = position_jitterdodge())
 
@@ -565,72 +398,13 @@ LAR_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_
                                 axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
                                 panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper addition", "grasshopper removal")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Watering Water", labels = c("Water-restricted","Supplemental watering"))
 
-LAR_fig= ggplot(newdf3, aes(x= elev_km,y= fit.c_trans, group= Water, 
+LAR_fig= ggplot(newdf2, aes(x= elev_km,y= fit.c_trans, group= Water, 
                                    colour= Water))+geom_point(size=2) + scale_y_continuous("Leaf area removed by herbivores (proportion)")+ scale_x_continuous("Source Elevation")  
 LAR_fig + theme_bw() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
                             panel.grid.minor=element_blank(),legend.position = "top")+geom_smooth(method="glm",size=1.6, formula=y~x)+facet_wrap(~ Herbivore, scales="free_x") +scale_colour_manual(values = c( "#CC79A7","lightblue"), name = "Water Water", labels = c("Restricted","Supplemental"))
                             
-                            
-                            
-##Try glmmTMB
-
-lar_model <- glmmTMB( y_beta ~S_elev*Water*Herbivore+year + (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data, family=beta_family)
-Anova(lar_model,type="III")
-simulationOutput <- simulateResiduals(fittedModel= lar_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-library(ggeffects)
-cols=c("#CC79A7","blue")
-pred_lar <- ggpredict(lar_model, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
-pred_lar <-plot(pred_dam, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Leaf area removed by herbivores (proportion)")
-pred_lar
-
-damage_model <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year + (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data, family=beta_family())
-Anova(damage_model,type="III")
-simulationOutput <- simulateResiduals(fittedModel= damage_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-library(ggeffects)
-cols=c("#CC79A7","blue")
-pred_dam <- ggpredict(damage_model, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
-dam_plot <-plot(pred_dam, show_residuals=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Leaf area removed by herbivores (proportion)")
-dam_plot
-
-
-##REturn here
-library(brms)
-
-
-mode=get_prior(y_beta ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), LAR_data, family = beta())
-
-
-zoib_model <- brm(
-bf(LAR ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype),
-  phi ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype),
-  zoi ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype),
-  coi ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), 
-  family = zero_one_inflated_beta(), LAR_data, prior=prior, chains=4, iter=110000,warmup=10000,control = list(max_treedepth = 100)))
-  
-  
-  model_beta_bayes <- brm(
-  bf(y_beta ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype),
-     phi ~  S_elev*Water*Herbivore*year+ (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype)),
-  data = LAR_data,
-  family = Beta(),
-  chains = 4, iter = 2000, warmup = 1000,
-  cores = 4, seed = 1234, 
-  file = "model_beta_bayes"  # Save this so it doesn't have to always rerun
-)
-
-
-summary(model_beta_bayes)
-library(ggeffects)
-cols=c("#CC79A7","blue")
-pred_dam <- ggpredict(model_beta_bayes, terms = c("S_elev[all]", "Water","Herbivore"), interval="confidence")
-dam_plot <-plot(pred_dam, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Leaf area removed by herbivores (proportion)")
-dam_plot
-
-
-
+   
 
 #*******************************************************************************
 #### Flowering time #####
@@ -823,7 +597,6 @@ SLA_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 hist(foliar$SLA)
-library(glmmTMB)
 sla <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family=lognormal(link="log"))
 
 Anova(sla, type = "III") # 
@@ -852,6 +625,7 @@ cols=c("#CC79A7","blue")
 pred_sla <- ggpredict(rosette_SLA, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
 sla_plot <-plot(pred_sla, show_residuals=TRUE, show_title =TRUE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Specific leaf area (rosette leaves only)")
 sla_plot
+
 
 #*******************************************************************************
 #### Leaf water content #####

@@ -22,103 +22,9 @@ require(gamlss) # for running phenology model
 require(broom.mixed) #for making tables
 require(multcomp) #for pairwise comparisons
 require(vioplot) #for violin plots
-require(DHARMa) #for model diagnostics
 
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
-#setwd("~/Documents/personnel/Jameel/grasshopper")
-
-
-#*******************************************************************************
-#### Treatment Water effect #####
-#*******************************************************************************
-
-#just looking at cage/block. no plants
-
-#read in data 
-VWC <- read.csv("Grasshopper_VWC.csv",stringsAsFactors=T)
-VWC $Year <-as.factor(VWC $Year)
-
-
-VWC_gg<-ggplot(VWC, aes(x = Water, y = avg_vwc, fill = Water,)) +
-  geom_boxplot(outlier.shape = NA) +xlab("Watering Water")+ scale_y_continuous("Volumetric Water Content") +
-  geom_point(pch = 21, position = position_jitterdodge())
-VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
-                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Supplemental water","Water-restricted")) +  scale_fill_manual(values = c( "lightblue","#CC79A7"))
-
-
-# model with average VWC across years
-VWC_repeated <- lmer(avg_vwc~ Water*Year+Herbivore + (1|Cage_Block), data=VWC )
-VWC_repeateda <- glmmTMB(avg_vwc ~Water*Year+Herbivore + (1|Cage_Block), data= VWC,family=Gamma(link="log"))
-
-
-Anova(VWC_repeateda, type = "III")
-
-summary(glht(VWC_repeateda, linfct = mcp(Water = "Tukey")))
-
-vwc_df <- VWC %>% 
-  
-  mutate(fit.m = predict(VWC_repeateda, re.form = NA),
-         
-         fit.c = predict(VWC_repeateda, re.form = NULL), #all random effects
-         
-         resid = residuals(VWC_repeateda))
-
-
-vioplot(fit.c ~ Water, data= vwc_df, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,30),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Watering Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-#model with multiple censuses across years
-
-#reformat datafile
-
-VWC_data<- VWC %>% pivot_longer(cols=c("VWC_1","VWC_2","VWC_3","VWC_4","VWC_5","VWC_6","VWC_7","VWC_8"),
-                                        names_to='census',
-                                        values_to='VWC')
-
-VWC_data$census[VWC_data$census == "VWC_1"] <- "1"
-VWC_data$census[VWC_data$census == "VWC_2"] <- "2"
-VWC_data$census[VWC_data$census == "VWC_3"] <-"3"
-VWC_data$census[VWC_data$census == "VWC_4"] <- "4"
-VWC_data$census[VWC_data$census == "VWC_5"] <- "5"
-VWC_data$census[VWC_data$census == "VWC_6"] <- "6"
-VWC_data$census[VWC_data$census == "VWC_7"] <- "7"
-VWC_data$census[VWC_data$census == "VWC_8"] <- "8"
-
-VWC_data $census <-as.factor(VWC_data $census)
-
-VWC_data $Year <-as.factor(VWC_data $Year)
-
-
-VWC_mod <- glmmTMB(VWC ~Water*Year+Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
-
-
-Anova(VWC_mod,type="III")
-summary(glht(VWC_mod, linfct = mcp(Water = "Tukey")))
-
-
-
-vioplot(VWC ~ Water, data= VWC_data, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,40),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
-
-
-ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
-  
-  facet_grid(~ Year) +
-  theme_light() +
-  scale_fill_manual(values = c("#CC79A7","lightblue")) +
-  labs(y = "Volumetric Water Content") + 
-  labs(x = "Watering Treatment") +
-  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
-
-######################## beginning of analysis ####
-
-
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
-#setwd("~/Documents/personnel/Jameel/grasshopper")
+##setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
+setwd("~/Documents/personnel/Jameel/grasshopper")
 
  #this is where you specify the folder where you have the data on your computer
 
@@ -185,13 +91,61 @@ grasshopper$SLA <- ifelse(is.na(grasshopper$rosette_SLA), (71.8177 + 0.7319*gras
 grasshopper$succulence <- ifelse(is.na(grasshopper$rosette_succulence), (0.0023948 + 0.5609208*grasshopper$bolt_succulence), grasshopper$rosette_succulence)
 grasshopper$lwc <- ifelse(is.na(grasshopper$rosette_lwc), (0.19571 + 0.67021*grasshopper$bolt_lwc), grasshopper$rosette_lwc)
 
-#This calculates flowering duration
-grasshopper$flowering_duration<-(grasshopper $Date_silique - grasshopper $FT_Adj)
+#This calculates flowering durationgrasshopper$flowering_duration<-(grasshopper $Date_silique - grasshopper $FT_Adj)
 
 
 ##Remove plants inadvertently killed by experimentors or gophers
 grasshopper_exclude <- filter(grasshopper, Exclude == "Include")
 
+
+#*******************************************************************************
+#### Treatment Water effect #####
+#*******************************************************************************
+
+#just looking at cage/block. no plants
+
+VWC_gg<-ggplot(grasshopper, aes(x = Water, y = avg_vwc, fill = Water,)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Watering Water")+ scale_y_continuous("Volumetric Water Content") +
+  geom_point(pch = 21, position = position_jitterdodge())
+VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                               axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                               panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Ample water","Water-restricted")) +  scale_fill_manual(values = c( "lightblue","#CC79A7"))
+
+
+VWC_repeated <- lmer(avg_vwc~ Water*Herbivore+year + (1|Cage_Block), data=grasshopper )
+
+visreg(VWC_repeated, 'Water', type="conditional", 
+       scale = "response", 
+       xlab="Source Elevation (Km)", ylab="Volumetric Water Content", partial=TRUE) 
+
+
+Anova(VWC_repeated, type = "III")
+
+
+#pull the fitted values out and plot them in ggplot
+
+vwc_df <- grasshopper %>% 
+  
+  mutate(fit.m = predict(VWC_repeated, re.form = NA),
+         
+         fit.c = predict(VWC_repeated, re.form = NULL), #all random effects
+         
+         resid = residuals(VWC_repeated))
+
+vioplot(fit.c ~ Water, data= vwc_df, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,20),colMed = "black",colMed2 = c("lightblue","#CC79A7"), col=c("lightblue","#CC79A7"), ylab="Volumetric water content", xlab="Watering Water") +stripchart(fit.c ~ Water, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
+
+ggplot(vwc_df, aes(x = Water, y = fit.c, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "gray", size = 2, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+  facet_grid(~ year) +
+  theme_light() +
+  scale_fill_manual(values = c("#CC79A7", "lightblue")) +
+  labs(y = "Volumetric Water Content") +
+  labs(x = "Watering Water") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
 
 
 #*******************************************************************************
@@ -205,8 +159,6 @@ surv <- glmmTMB(Season_survival ~ S_initdiam+ Water*Herbivore * S_elev *year+Wat
 Anova(surv, type="III")
 
 library(effects)
-library(ggeffects)
-
 cols=c("#CC79A7","blue")
 pred_FT <- ggpredict(surv, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
 phen_plot <-plot(pred_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Survival")
@@ -485,7 +437,7 @@ summary(LAR_Model)
 drop1(LAR_Model)
 
 ##Full models with year crossed with other factors is slightly better
-AIC(LAR_Mod, LAR_Model)
+AIC(LAR_Mod, LAR_Model, c=True)
 
 
 #Subsets of models for drop 1
@@ -540,7 +492,7 @@ LAR_fig + theme_bw() + theme(text = element_text(size=10),axis.line.x = element_
 
 #pull the fitted values out and plot them in ggplot
 
-newdf3 <- LAR_data %>% 
+newdf2 <- LAR_data %>% 
   
   mutate(fit.m = predict(LAR_Model, re.form = NA),
          
@@ -550,14 +502,14 @@ newdf3 <- LAR_data %>%
 
 ##Convert fit.m and fit.c back to the proportional scale
 
-newdf3 $fit.m_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+newdf2 $fit.m_trans<-1/(1+exp(-(newdf2 $fit.m))) 
 
-newdf3 $fit.c_trans<-1/(1+exp(-(newdf3 $fit.m))) 
+newdf2 $fit.c_trans<-1/(1+exp(-(newdf2 $fit.m))) 
 
-newdf3 $resid_trans<-1/(1+exp(-(newdf3 $resid))) 
+newdf2 $resid_trans<-1/(1+exp(-(newdf2 $resid))) 
 
 
-LAR_box <-ggplot(newdf3, aes(x = Herbivore, y = fit.c_trans, fill = Water)) +
+LAR_box <-ggplot(newdf2, aes(x = Herbivore, y = fit.c_trans, fill = Water)) +
   geom_boxplot(outlier.shape = NA) +xlab("Herbivore Water")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
   geom_point(pch = 21, position = position_jitterdodge())
 
@@ -565,7 +517,7 @@ LAR_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_
                                 axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
                                 panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper addition", "grasshopper removal")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Watering Water", labels = c("Water-restricted","Supplemental watering"))
 
-LAR_fig= ggplot(newdf3, aes(x= elev_km,y= fit.c_trans, group= Water, 
+LAR_fig= ggplot(newdf2, aes(x= elev_km,y= fit.c_trans, group= Water, 
                                    colour= Water))+geom_point(size=2) + scale_y_continuous("Leaf area removed by herbivores (proportion)")+ scale_x_continuous("Source Elevation")  
 LAR_fig + theme_bw() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
@@ -823,7 +775,6 @@ SLA_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 hist(foliar$SLA)
-library(glmmTMB)
 sla <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family=lognormal(link="log"))
 
 Anova(sla, type = "III") # 
@@ -852,6 +803,7 @@ cols=c("#CC79A7","blue")
 pred_sla <- ggpredict(rosette_SLA, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
 sla_plot <-plot(pred_sla, show_residuals=TRUE, show_title =TRUE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Specific leaf area (rosette leaves only)")
 sla_plot
+
 
 #*******************************************************************************
 #### Leaf water content #####
