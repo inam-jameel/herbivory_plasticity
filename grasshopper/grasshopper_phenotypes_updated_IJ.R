@@ -1,7 +1,7 @@
 ######## PROJECT: grasshopper experiment: variation in herbivore damage due to water availability 
 #### PURPOSE:Examine fitness, traits in response to water availability and herbivory .
 #### AUTHORS: Jill Anderson
-#### DATE LAST MODIFIED: 7 March 24
+#### DATE LAST MODIFIED: 11 March 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -25,14 +25,14 @@ require(vioplot) #for violin plots
 library(DHARMa)
 library(ggeffects)
 
-##setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
-setwd("~/Documents/personnel/Jameel/grasshopper")
+setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
+#setwd("~/Documents/personnel/Jameel/grasshopper/")
 
  #this is where you specify the folder where you have the data on your computer
 
 
 #read in data 
-grasshopper <- read.csv("Grasshopper_fulldata_long_updated_6March24.csv",stringsAsFactors=T)
+grasshopper <- read.csv("Grasshopper_fulldata_long_updated_10March24.csv",stringsAsFactors=T)
 
 sapply(grasshopper,class)
 ##Some  variables are being read as characters not factors. Let's fix that
@@ -167,8 +167,14 @@ VWC_data $census <-as.factor(VWC_data $census)
 
 VWC_data $Year <-as.factor(VWC_data $Year)
 
+VWC_data$yearWater <- interaction(VWC_data$Year, VWC_data$Water)
+VWC_data$yearHerbivore <- interaction(VWC_data$Year, VWC_data$Herbivore)
+
+
 
 VWC_mod <- glmmTMB(VWC ~Water*Year*Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
+
+
 
 simulationOutput <- simulateResiduals(fittedModel= VWC_mod, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
@@ -316,6 +322,9 @@ drop1(LAR_Mod)
 LAR_Model<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year+ random(census) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 summary(LAR_Model)
 drop1(LAR_Model)
+
+
+
 
 ##Full models with year crossed with other factors is slightly better
 AIC(LAR_Mod, LAR_Model, c=True)

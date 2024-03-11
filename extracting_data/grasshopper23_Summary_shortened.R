@@ -5,7 +5,7 @@ getwd()
 library(writexl)
 
 ##Data
-GH<-read.csv("grasshopper_census_2023.csv", header=T)
+GH<-read.csv("grasshopper_census_2023_updated.csv", header=T)
 sapply(GH,class)
 
 head(GH,20)
@@ -200,9 +200,7 @@ if(nrow(Repro)>=1) {
   Empty$Silique_number_flowering_2023[target_row]<-Repro$Silique_number[1] }
 
 if(nrow(Repro)>=1) {
-  Empty$Silique_length_flowering_2023[target_row]<-sum(Repro[1,c(48:75)], na.rm=T)
-  #<-Repro$Silique_length[1] 
-  }
+  Empty$Silique_length_flowering_2023[target_row]<-Repro$Silique_length[1]}
 
 
 
@@ -301,8 +299,8 @@ if(sum(Repro$Silique_number, na.rm=T)>=1) { #outer if statement
   
   Empty$Silique_number_silique_2023[target_row]<-Repro$Silique_number[1]
   
-  Empty$Silique_length_silique_2023[target_row]<-sum(Repro[1,c(48:75)], na.rm=T)
-  #<-Repro$Silique_length[1]
+  Empty$Silique_length_silique_2023[target_row]<-Repro$Silique_length[1]
+
   
   #Height1_silique
   Empty$Height1_silique_2023[target_row]<-Repro$Height1[1]
