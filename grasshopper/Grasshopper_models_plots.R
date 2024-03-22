@@ -103,6 +103,63 @@ foliar $S_elev<-scale(foliar $elevation,center=TRUE, scale=TRUE)
 cols=c("#CC79A7","lightblue")
 cols2=c("#882255","lightgreen")
 
+#*******************************************************************************
+#### Treatment Water effect #####
+#*******************************************************************************
+
+#read in data 
+VWC <- read.csv("Grasshopper_VWC.csv",stringsAsFactors=T)
+VWC $Year <-as.factor(VWC $Year)
+
+#model with multiple censuses across years
+
+#reformat datafile
+
+VWC_data<- VWC %>% pivot_longer(cols=c("VWC_1","VWC_2","VWC_3","VWC_4","VWC_5","VWC_6","VWC_7","VWC_8"),
+                                names_to='census',
+                                values_to='VWC')
+
+VWC_data$census[VWC_data$census == "VWC_1"] <- "1"
+VWC_data$census[VWC_data$census == "VWC_2"] <- "2"
+VWC_data$census[VWC_data$census == "VWC_3"] <-"3"
+VWC_data$census[VWC_data$census == "VWC_4"] <- "4"
+VWC_data$census[VWC_data$census == "VWC_5"] <- "5"
+VWC_data$census[VWC_data$census == "VWC_6"] <- "6"
+VWC_data$census[VWC_data$census == "VWC_7"] <- "7"
+VWC_data$census[VWC_data$census == "VWC_8"] <- "8"
+
+VWC_data $census <-as.factor(VWC_data $census)
+
+VWC_data $Year <-as.factor(VWC_data $Year)
+
+VWC_data$yearWater <- interaction(VWC_data$Year, VWC_data$Water)
+VWC_data$yearHerbivore <- interaction(VWC_data$Year, VWC_data$Herbivore)
+
+
+
+VWC_mod <- glmmTMB(VWC ~Water*Year*Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
+
+simulationOutput <- simulateResiduals(fittedModel= VWC_mod, plot = T, re.form = NULL,allow.new.levels =TRUE)
+
+Anova(VWC_mod,type="III")
+
+VWC_means<-emmeans(VWC_mod, ~ Water:Year, type="response", adjust = "sidak")
+cld(VWC_means, details=TRUE)
+
+
+ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "black", size = 2, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 1, width = 1) +
+  
+  facet_grid(~ Year) +
+  theme_light() +
+  scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = "Volumetric Water Content") + 
+  labs(x = "Watering Treatment") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
+
 
 ### Hypothesis one ######
 
@@ -233,13 +290,20 @@ Anova(succ_model, type = "III") #
 simulationOutput <- simulateResiduals(fittedModel= succ_model, plot = T, re.form = NULL,allow.new.levels =T)
 
 
+succulence <-emmeans(succ_model, ~ Herbivore:Water, type="response", adjust = "sidak")
+cld(succulence, details=TRUE)
+
+succulence <-emmeans(succ_model, ~ Herbivore:year, type="response", adjust = "sidak")
+cld(succulence, details=TRUE)
+
+
 pred_succ <- ggpredict(succ_model, terms = c("S_elev[all]","year"), type = "re", interval="confidence")
 
 Succulence_cline <-plot(pred_succ, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("black","black"), facet=TRUE)+theme(
   #text = element_text(size=20),
-  axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Leaf succulence")
+  axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
 
-Succulence_cline
+Succulence_cline #supplemental figure
 
 
 Succulence_treatment<- ggplot(succulence_data, aes(x = Water, y = Suc_mg, group = Water)) +
@@ -265,7 +329,7 @@ Succulence_treatment_year<- ggplot(succulence_data, aes(x = Herbivore, y = Suc_m
   facet_grid(~ year) +
   theme_light() +
   scale_fill_manual(values = cols2) +
-  labs(y = "Leaf succulence") + 
+  labs(y = element_blank()) + 
   labs(x = "Herbivore Treatment") +
   #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "none") 
@@ -277,10 +341,10 @@ Succulence_treatment_year #supplemental figure
 figureS4 <- ggarrange(
   Succulence_treatment,
   Succulence_treatment_year,
+  Succulence_cline,
   
-  
-  labels = c("A", "B"),
-  ncol = 2, nrow = 1)
+  labels = c("A", "B","C"),
+  ncol = 3, nrow = 1)
 figureS4
 
 
@@ -377,7 +441,7 @@ height_cline <-plot(pred_height, show_data=TRUE, show_title =FALSE, show_legend=
   axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Height of tallest bolt at flowering")
 
 
-height_cline #supplemental figure, S5
+height_cline #supplemental figure, S6
 
 
 #Height_treatment<- ggplot(flowering, aes(x = Water, y = Max_height_flowering, group = Water)) +
@@ -438,6 +502,10 @@ simulationOutput <- simulateResiduals(fittedModel= prob_repro, plot = T, re.form
 testOutliers(simulationOutput, type = c(
   "bootstrap"), nBoot = 100, plot = T)
 
+repro<-emmeans(prob_repro, ~ Herbivore:year, type="response", adjust = "sidak")
+cld(repro, details=TRUE)
+
+
 repro_herb<- ggplot(grasshopperFT, aes(x = Herbivore, y = Reproduced, group = Herbivore)) +
   geom_violin(aes(fill = Herbivore), alpha = 0.95, trim = T) +
   #geom_jitter(shape = 21, fill = "white", size = .5, alpha = 0.5) +
@@ -451,7 +519,7 @@ repro_herb<- ggplot(grasshopperFT, aes(x = Herbivore, y = Reproduced, group = He
   #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "none")
 
-repro_herb
+repro_herb #supplemental figure
 
 
 #*******************************************************************************
@@ -512,13 +580,12 @@ fecundity_treatment
 
 library(ggpubr)
 figure2 <- ggarrange(
-    repro_herb,
     fecundity_treatment,
     Local_adaptation,
     
                      
-                     labels = c("A", "B", "C"),
-                     ncol = 3, nrow = 1)
+                     labels = c("A", "B"),
+                     ncol = 2, nrow = 1)
 figure2
 
 

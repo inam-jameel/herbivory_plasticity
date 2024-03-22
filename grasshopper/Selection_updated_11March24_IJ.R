@@ -156,23 +156,14 @@ fec_table <- fec_table%>% mutate(
 
 
 
-library(ggeffects)
-cols=c("#D55E00", "blue")
+sSUC_pred <- ggpredict(repro_model_full, terms = c("sSUC[all]", "Herbivore"), type = "re", interval="confidence")
 
-cols2=c("#117733", "#882255")
-
-full_sSUC <- ggpredict(repro_model_full, terms = c("sSUC[all]", "Water","Herbivore"), type = "re", interval="confidence")
-plot(full_sSUC, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols,facet=TRUE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Succulence")+ scale_y_continuous("Probability of reproduction")
-
-full_sSUC <- ggpredict(repro_model_full, terms = c("sSUC[all]", "Herbivore"), type = "re", interval="confidence")
-plot(full_sSUC, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols2,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Succulence")+ scale_y_continuous("Probability of reproduction")
-
-full_sla <- ggpredict(repro_model_full, terms = c("sSLA[all]", "Water","Herbivore"), type = "re", interval="confidence")
-plot(full_sla, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Probability of reproduction")
+Succulence_reproduction_herbivore <-plot(full_sSUC, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols2,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Succulence")+ scale_y_continuous("Probability of reproduction")
 
 
-full_sla <- ggpredict(repro_model_full, terms = c("sSLA[all]", "Water"), type = "re", interval="confidence")
-plot(full_sla, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Probability of reproduction")
+sla_pred <- ggpredict(repro_model_full, terms = c("sSLA[all]", "Water"), type = "re", interval="confidence")
+
+SLA_reproduction_herbivore <- plot(sla_pred, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Probability of reproduction")
 
 
 
