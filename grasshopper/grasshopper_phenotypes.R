@@ -1,7 +1,7 @@
 ######## PROJECT: grasshopper experiment: variation in herbivore damage due to water availability 
 #### PURPOSE:Examine fitness, traits in response to water availability and herbivory .
 #### AUTHORS: Inam Jameel & Jill Anderson
-#### DATE LAST MODIFIED: 14 feb 24
+#### DATE LAST MODIFIED: 5 march 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -16,6 +16,7 @@ require(plyr) # for data wrangling
 require(dplyr) # for data wrangling
 require(tidyr) # for data wrangling
 require(effects) # for plotting
+require(ggeffects) # for plotting
 require(emmeans) #for plotting
 require(glmmTMB) # for running survival model, have to load twice
 require(gamlss) # for running phenology model
@@ -23,6 +24,7 @@ require(broom.mixed) #for making tables
 require(multcomp) #for pairwise comparisons
 require(vioplot) #for violin plots
 require(DHARMa) #for model diagnostics
+
 
 setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper")
 #setwd("~/Documents/personnel/Jameel/grasshopper")
@@ -49,7 +51,7 @@ VWC_gg + theme_bw() + theme(text = element_text(size=20),axis.line.x = element_l
 
 # model with average VWC across years
 VWC_repeated <- lmer(avg_vwc~ Water*Year+Herbivore + (1|Cage_Block), data=VWC )
-VWC_repeateda <- glmmTMB(avg_vwc ~Water*Year+Herbivore + (1|Cage_Block), data= VWC,family=Gamma(link="log"))
+VWC_repeateda <- glmmTMB(avg_vwc ~Water*Year+Herbivore + (1|Cage_Block), data= VWC,family=Gamma(link="identity"))
 
 
 Anova(VWC_repeateda, type = "III")
@@ -90,7 +92,7 @@ VWC_data $census <-as.factor(VWC_data $census)
 VWC_data $Year <-as.factor(VWC_data $Year)
 
 
-VWC_mod <- glmmTMB(VWC ~Water*Year+Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
+VWC_mod <- glmmTMB(VWC ~Water*Year*Herbivore+(1|census) + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
 
 
 Anova(VWC_mod,type="III")
@@ -98,7 +100,7 @@ summary(glht(VWC_mod, linfct = mcp(Water = "Tukey")))
 
 
 
-vioplot(VWC ~ Water, data= VWC_data, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,40),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
+vioplot(VWC ~ Water, data= VWC_data, plotCentre = "point",  pchMed = 23,  horizontal= FALSE,ylim=c(0,40),colMed = "black",colMed2 = c("#CC79A7","lightblue"), col=c("#CC79A7","lightblue"), ylab="Volumetric water content", xlab="Watering treatment") #+stripchart(fit.c ~ treat, data= vwc_df, col = alpha("black", 0.2), pch=16 ,vertical = TRUE, add = TRUE)
 
 
 ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
@@ -823,7 +825,7 @@ SLA_RM_box + theme_bw() + theme(text = element_text(size=20),axis.line.x = eleme
 
 
 hist(foliar$SLA)
-library(glmmTMB)
+
 sla <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family=lognormal(link="log"))
 
 Anova(sla, type = "III") # 
