@@ -101,10 +101,10 @@ foliar $S_elev<-scale(foliar $elevation,center=TRUE, scale=TRUE)
 
 #set colors
 cols=c("#CC79A7","lightblue")
-cols2=c("#882255","lightgreen")
+cols2=c("#882255","#77DDAA")
 
 #*******************************************************************************
-#### Treatment Water effect #####
+#### Treatment Water effect ####
 #*******************************************************************************
 
 #read in data 
@@ -147,24 +147,29 @@ VWC_means<-emmeans(VWC_mod, ~ Water:Year, type="response", adjust = "sidak")
 cld(VWC_means, details=TRUE)
 
 
-ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.15), fill = "black", size = 2, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 1, width = 1) +
-  
+VWC_plot <-ggplot(VWC_data, aes(x = Water, y = VWC, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  #geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+  #stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
+  geom_violin(aes(color = Water), trim = FALSE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
   facet_grid(~ Year) +
-  theme_light() +
-  scale_fill_manual(values = c("#CC79A7","lightblue")) +
-  labs(y = "Volumetric Water Content") + 
-  labs(x = "Watering Treatment") +
-  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
+  theme_classic() + ylim(0,50) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = element_blank()) + 
+  labs(x = "Water availability") +
+  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
+
+VWC_plot # Fig SX
 
 
-### Hypothesis one ######
+
+### Hypothesis one #####
 
 #*******************************************************************************
-#### Herbivore damage #####
+#### Herbivore damage #######
 #*******************************************************************************
 
 #reformat datafile
@@ -189,9 +194,6 @@ LAR_data $year <-as.factor(LAR_data $year)
 
 LAR_data$LAR_prop<-LAR_data $LAR/100
 hist(LAR_data$LAR_prop)
-
-ggplot(LAR_data, aes(x= LAR_prop))+ geom_histogram(color="black", fill="white")+ facet_grid(census ~  .)
-
 LAR_data <- drop_na(LAR_data,LAR_prop) 
 
 n<-nrow(LAR_data)
@@ -207,36 +209,156 @@ min(LAR_data $y_beta)
 max(LAR_data $y_beta)
 
 ## model
-damage_model <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year + (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data, family=beta_family())
+LAR_Model<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year+ random(census) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 
-Anova(damage_model,type="III") 
+#env concatenates water and herbivore, needed for slope calculations
 
-simulationOutput <- simulateResiduals(fittedModel= damage_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
+LAR_data $env<-interaction(LAR_data $Water, LAR_data $Herbivore)
+
+LAR_data $env_year<-interaction(LAR_data $env, LAR_data $year)
+
+LAR_ModelE<- gamlss (formula= y_beta ~S_elev* env_year-1+ random(census) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+
+summary(LAR_ModelE)
+
+plot(LAR_Model)
+
+
+
+
+#damage_model <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year + (1| census)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data, family=beta_family())
+
+#Anova(LAR_Model,type="III") 
+
+#simulationOutput <- simulateResiduals(fittedModel= LAR_Model, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
 
 ## elevation plot
-pred_dam <- ggpredict(damage_model, terms = c("S_elev[all]","Herbivore","year"), type = "re", interval="confidence")
 
-damage_cline <-plot(pred_dam, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols2, facet=TRUE)+theme(text = element_text(size=10), axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Standardized source elevation (km)")+ scale_y_continuous("Leaf Area Removed") 
+pred_dam <- ggpredict(LAR_Model, terms = c("S_elev[all]","Herbivore","year"), type = "re", interval="confidence")
+
+
+
+pred_dam1 <- ggpredict(LAR_Model, terms = c("S_elev[all]","Water","year"), type = "re", interval="confidence")
+pred_dam2 <- ggpredict(LAR_Model1, terms = c("S_elev[all]","Water","year"), type = "re", interval="confidence")
+
+pred_dam3 <- ggpredict(LAR_Model1, terms = c("S_elev"), type = "re", interval="prediction")
+
+
+
+pred_dam2 <- ggpredict(LAR_Model, terms = c("S_elev[all]","Water", "Herbivore"), type = "re", interval="confidence")
+
+
+
+##Change the baseline for Water availability
+LAR_data $Herbivore1 <-factor(LAR_data $Herbivore, levels = c("Removal","Addition"))
+LAR_Model1<- gamlss (formula= y_beta ~S_elev*Water*Herbivore1*year+ random(census) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+##Generate the figure
+
+damage_cline <-plot(pred_dam, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors =cols2, facet=TRUE)+theme(text = element_text(size=10), axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Standardized source elevation (km)")+ scale_y_continuous("Leaf Area Removed") 
 
 damage_cline
 
+test <-plot(pred_dam1, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)
++theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
+
+test2 <-plot(pred_dam2, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
+
+test3 <-plot(pred_dam3, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
+
+
+
+
+damage_cline1 <-plot(pred_dam1, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols) +theme_classic(text = element_text(size=10), axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Standardized source elevation (km)")+ scale_y_continuous("Leaf Area Removed") 
+
+damage_cline1
+
+damage_cline1 <-plot(test, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("planetexpress"))+theme(text = element_text(size=10), axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Standardized source elevation (km)")+ scale_y_continuous("Leaf Area Removed") 
+
+test3 <- ggpredict(LAR_ModelE, terms = c("S_elev[all]", "env_year"), type = "re", interval="confidence")
+
+phen_plot <-plot(pred_LNO, show_residuals=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Timing of snowmelt (ordinal day)")+ scale_y_continuous("Germination phenology (ordinal day of germination)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+
+
+
+damage_cline= ggplot(LARdf, aes(x= S_elev,y= fit.c_trans, group= Water, 
+                            colour= Water))+geom_point(size=.25) + scale_y_continuous("Foliar damage by herbivores")+ scale_x_continuous("Source elevation (standardized)")   + theme_classic() + facet_grid(Herbivore~ year) + theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                             panel.grid.minor=element_blank(),legend.position = "none")+geom_smooth(method="glm",size=1.6, formula=y~x) +scale_colour_manual(values = cols, name = "Water availability", labels = c("Restricted","Supplemental"))
+
+damage_cline #fig 2
+
+damage_cline_herbivore = ggplot(LAR_data, aes(x= S_elev,y= y_beta, group= Herbivore, 
+                              colour= Herbivore))+geom_point(size=1) + scale_y_continuous("Foliar damage by herbivores")+ scale_x_continuous("Source Elevation")   + theme_classic() + facet_grid(~ year) + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                                                axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),
+                                                                panel.grid.minor=element_blank(),legend.position = "none")+geom_smooth(method="glm",size=1.6, formula=y~x) +scale_colour_manual(values = cols2, name = "Herbivore manipulation", labels = c("Addition","Removal"))
+
+damage_cline_herbivore #fig 2
+
 ## treatment plot
 
-damage_treatment <-ggplot(LAR_data, aes(x = Water, y = y_beta, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
+LARdf <- LAR_data %>% 
+  mutate(fit.m = predict(LAR_Model, re.form = NA),
+         
+         fit.c = predict(LAR_Model, re.form = NULL), #all random effects
+         
+         resid = residuals(LAR_Model))
+
+
+
+##Convert fit.m and fit.c back to the proportional scale
+
+
+LARdf $fit.m_trans<-1/(1+exp(-(LARdf $fit.m))) 
+
+LARdf $fit.c_trans<-1/(1+exp(-(LARdf $fit.m))) 
+
+LARdf $resid_trans<-1/(1+exp(-(LARdf $resid))) 
+
+
+LAR_box <-ggplot(LARdf, aes(x = Herbivore, y = fit.c_trans, fill = Water)) +
   
+  geom_boxplot(outlier.shape = NA) +xlab("Herbivore Water")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
+  
+  geom_point(pch = 21, position = position_jitterdodge())
+
+
+
+LAR_box + theme_classic() + theme(text = element_text(size=20),axis.line.x = element_line(colour = "black"), 
+                                  
+                                  axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                  
+                                  panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("grasshopper addition", "grasshopper removal")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Watering Water", labels = c("Water-restricted","Supplemental watering"))
+
+
+damage_treatment <-ggplot(LARdf, aes(x = Water, y = fit.c_trans, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  #geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+  #stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
+  geom_violin(aes(color = Water), trim = FALSE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
   facet_grid(Herbivore~ year) +
-  theme_bw() + ylim(0,.7)+
-  scale_fill_manual(values = c("#CC79A7","lightblue")) +
-  labs(y = "Damage by Herbivores (%)") + 
-  labs(x = element_blank()) +
+  theme_classic() + ylim(0,.4) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = element_blank()) + 
+  labs(x = "Water availability") +
   #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
   theme(legend.position = "none")
 
-damage_treatment
+damage_treatment #fig 2
+
+
+figure2 <- ggarrange(
+                     damage_cline,
+                     damage_treatment,
+            
+                     
+                     labels = c("A", "B"),
+                     ncol = 2, nrow = 1)
+
+
 
 #*******************************************************************************
 #### Specific Leaf Area #####
@@ -251,27 +373,31 @@ Anova(sla_model, type = "III") #
 
 simulationOutput <- simulateResiduals(fittedModel= sla_model, plot = T, re.form = NULL,allow.new.levels =T)
 
-pred_sla <- ggpredict(sla_model, terms = c("S_elev[all]","year"), type = "re", interval="confidence")
+pred_sla <- ggpredict(sla_model, terms = c("S_elev[all]", "year"), type = "re", interval="confidence")
 
 sla_cline <-plot(pred_sla, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("black","black"), facet=TRUE)+theme(#text = element_text(size=20),
                                                                                                                               axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Specific leaf area")
 
-sla_cline
+sla_cline #Fig S4
 
-SLA_treatment <- ggplot(SLA_df, aes(x = Water, y = SLA, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+SLA_treatment <-ggplot(foliar, aes(x = Water, y = SLA, group = Water)) +
+  geom_violin(aes(color = Water), alpha = 0.95, trim = T) +# geom_boxplot(width = 0.2)+
   geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
   stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
-  
+ # geom_violin(aes(color = Water), trim = FALSE, position = position_dodge(0.9) ) +
+  #geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
   #facet_grid(Herbivore~ year) +
-  theme_bw() + ylim(75,250)+
-  scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  theme_classic() + #ylim(0,.7) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
   labs(y = "Specific leaf area") + 
   labs(x = element_blank()) +
-  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
 
-SLA_treatment
+  SLA_treatment
+  sla_cline
+
 
 #*******************************************************************************
 #### Succulence #####
@@ -297,44 +423,93 @@ succulence <-emmeans(succ_model, ~ Herbivore:year, type="response", adjust = "si
 cld(succulence, details=TRUE)
 
 
-pred_succ <- ggpredict(succ_model, terms = c("S_elev[all]","year"), type = "re", interval="confidence")
+pred_succ <- ggpredict(succ_model, terms = c("S_elev[all]"), type = "re", interval="confidence")
 
-Succulence_cline <-plot(pred_succ, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("black","black"), facet=TRUE)+theme(
-  #text = element_text(size=20),
-  axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
+
+pred_succ <- ggpredict(succ_model, terms = c("S_elev[all]","Water","Herbivore","year"), type = "re", interval="confidence")
+
+
+Succulence_cline <-plot(pred_succ, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("black","black"), facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
 
 Succulence_cline #supplemental figure
 
 
-Succulence_treatment<- ggplot(succulence_data, aes(x = Water, y = Suc_mg, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
-  
-  facet_grid(~ Herbivore) +
-  theme_light() +
-  scale_fill_manual(values = cols) +
-  labs(y = "Leaf succulence") + 
-  labs(x = "Watering Treatment") +
-  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
+Succulence_treatment <-ggplot(succulence_data, aes(x = Water, y = Suc_mg, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  geom_violin(aes(color = Water), trim = TRUE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
+  #facet_grid(Herbivore~ year) +
+  theme_classic() + #ylim(0,20) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = "Leaf succulence (mg)") + 
+  labs(x = "Water availability") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
 
-Succulence_treatment #supplemental figure
+Succulence_treatment
 
-Succulence_treatment_year<- ggplot(succulence_data, aes(x = Herbivore, y = Suc_mg, group = Herbivore)) +
-  geom_violin(aes(fill = Herbivore), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
-  
+Succulence_treatment_year <-ggplot(succulence_data, aes(x = Herbivore, y = Suc_mg, group = Herbivore)) +
+  geom_violin(aes(fill = Herbivore), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  geom_violin(aes(color = Herbivore), trim = FALSE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Herbivore), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols2) +
   facet_grid(~ year) +
-  theme_light() +
-  scale_fill_manual(values = cols2) +
+  theme_classic() + ylim(0,20) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
   labs(y = element_blank()) + 
-  labs(x = "Herbivore Treatment") +
-  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
+  labs(x = "Herbivore manipulation") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
 
-Succulence_treatment_year #supplemental figure
+Succulence_treatment_year
+
+Succulence_treatment_water <-ggplot(succulence_data, aes(x = Water, y = Suc_mg, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  geom_violin(aes(color = Water), trim = TRUE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
+  facet_grid(~ Herbivore) +
+  theme_classic() + #ylim(0,20) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = element_blank()) + 
+  labs(x = "Herbivore manipulation") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
+
+Succulence_treatment_water
+
+
+
+#Succulence_treatment<- ggplot(succulence_data, aes(x = Water, y = Suc_mg, group = Water)) +
+#  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+#  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+#  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+#  facet_grid(~ Herbivore) +
+#  theme_light() +
+#  scale_fill_manual(values = cols) +
+#  labs(y = "Leaf succulence") + 
+#  labs(x = "Watering Treatment") +
+  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+#  theme(legend.position = "none") 
+
+#Succulence_treatment #supplemental figure
+
+#Succulence_treatment_year<- ggplot(succulence_data, aes(x = Herbivore, y = Suc_mg, group = Herbivore)) +
+#  geom_violin(aes(fill = Herbivore), alpha = 0.95, trim = T) +
+#  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+#  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+  
+#  facet_grid(~ year) +
+#  theme_light() +
+#  scale_fill_manual(values = cols2) +
+#  labs(y = element_blank()) + 
+#  labs(x = "Herbivore Treatment") +
+  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+#  theme(legend.position = "none") 
+
+#Succulence_treatment_year #supplemental figure
 
 ####
 
@@ -362,33 +537,46 @@ FT_model<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Bloc
 Anova(FT_model, type = "III") # 
 
 pred_FT <- ggpredict(FT_model, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
-phen_cline <-plot(pred_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(#text = element_text(size=10),
-  axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Flowering phenology (ordinal day of year)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+phen_cline <-plot(pred_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Flowering phenology (ordinal day of year)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 
 phen_cline #main figure, fig1
 
 
 pred_FT2 <- ggpredict(FT_model, terms = c("S_elev[all]", "Water","year"), type = "re", interval="confidence")
-phen_cline_year <-plot(pred_FT2, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Flowering phenology (ordinal day of year)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+phen_cline_year <-plot(pred_FT2, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Flowering phenology (ordinal day of year)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 
 
 phen_cline_year #supplemental figure, S5
 
 
-#FT_treatment<- ggplot(flowering, aes(x = Water, y = FT_Adj, group = Water)) +
-#  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-#  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
-#  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
+FT_treatment<- ggplot(flowering, aes(x = Water, y = FT_Adj, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
+  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
   
-#  facet_grid(~ Herbivore) +
-#  theme_light() +
-#  scale_fill_manual(values = cols) +
-#  labs(y = "Flowering phenology (ordinal day of year)") + 
-#  labs(x = element_blank()) +
-  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-#  theme(legend.position = "none") 
+  facet_grid(~ Herbivore) +
+  theme_light() +
+  scale_fill_manual(values = cols) +
+  labs(y = "Flowering phenology (ordinal day of year)") + 
+  labs(x = element_blank()) +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none") 
 
-#FT_treatment #not significant
+
+FT_treatment <-ggplot(flowering, aes(x = Water, y = FT_Adj, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+
+  geom_violin(aes(color = Water), trim = TRUE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
+  facet_grid(~ Herbivore) +
+  theme_classic() + #ylim(0,20) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = element_blank()) + 
+  labs(x = "Herbivore manipulation") +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
+
+FT_treatment #not significant
 
 
 #*******************************************************************************
@@ -402,28 +590,32 @@ Anova(flowering_duration, type = "III") # elevation is significant, not year
 #Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= flowering_duration, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
-pred_duration <- ggpredict(flowering_duration, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
+pred_duration <- ggpredict(flowering_duration, terms = c("S_elev[all]"), type = "re", interval="confidence")
+
 Duration_cline <-plot(pred_duration, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme(#text = element_text(size=10),
   axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Flowering Duration (days)")
 
 
+Duration_cline <-plot(pred_duration, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Flowering duration (days)")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
 Duration_cline #no significant interaction
 
 
-Duration_treatment<- ggplot(flowering, aes(x = Water, y = flowering_duration, group = Water)) +
-  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
-  geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
-  stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33) +
-  
+
+Duration_treatment <-ggplot(flowering, aes(x = Water, y = flowering_duration, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+ 
+  #geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+  #stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
+  geom_violin(aes(color = Water), trim = TRUE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
   facet_grid(~ Herbivore) +
-  theme_light() +
-  scale_fill_manual(values = cols) +
+  theme_classic() + #ylim(0,80) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
   labs(y = "Flowering duration") + 
   labs(x = element_blank()) +
-  #theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
-  theme(legend.position = "none") 
-
-Duration_treatment #not significant
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
 
 
 #*******************************************************************************
@@ -441,7 +633,25 @@ height_cline <-plot(pred_height, show_data=TRUE, show_title =FALSE, show_legend=
   axis.title.x=element_blank(),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Height of tallest bolt at flowering")
 
 
+height_cline <-plot(pred_height, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (km)")+ scale_y_continuous("Height of tallest bolt at flowering")+ geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
 height_cline #supplemental figure, S6
+
+Height_treatment <-ggplot(flowering, aes(x = Water, y = Max_height_flowering, group = Water)) +
+  geom_violin(aes(fill = Water), alpha = 0.95, trim = T) + geom_boxplot(width = 0.2)+ 
+  #geom_jitter(shape = 21, position = position_jitter(0.1), fill = "white", size = .5, alpha = 0.5) +
+  #stat_summary(fun = median, geom = "crossbar", size = 0.5, width = 0.33,fill = "gray") +
+  geom_violin(aes(color = Water), trim = TRUE, position = position_dodge(0.9) ) +
+  geom_boxplot(aes(color = Water), width = 0.15, position = position_dodge(0.9)) +
+  scale_color_manual(values = cols) +
+  facet_grid(~ Herbivore) +
+  theme_classic() + #ylim(0,80) +
+  #scale_fill_manual(values = c("#CC79A7","lightblue")) +
+  labs(y = "Height of tallest bolt at flowering") + 
+  labs(x = element_blank()) +
+  theme(axis.title.y = element_text(size=14, face="bold", colour = "black")) +
+  theme(legend.position = "none")
+
 
 
 #Height_treatment<- ggplot(flowering, aes(x = Water, y = Max_height_flowering, group = Water)) +
@@ -467,23 +677,11 @@ figure1 <- ggarrange(damage_treatment,
                      damage_cline,
                      
                      SLA_treatment,
-                     sla_cline,
-                     
-                     Succulence_treatment,
-                     Succulence_cline,
-                     
-                     FT_treatment,
+                    
                      phen_cline,
                      
-                     Duration_treatment,
-                     Duration_cline,
-                     
-                     Height_treatment,
-                     height_cline,
-                     
-                     labels = c("A", "B", "C", "D","E", "F", "G", "H",
-                                "I", "J", "K", "L","M", "N", "O", "P"),
-                     ncol = 2, nrow = 6)
+                     labels = c("A", "B", "C", "D"),
+                     ncol = 2, nrow = 2)
 figure1
 
 
@@ -521,6 +719,9 @@ repro_herb<- ggplot(grasshopperFT, aes(x = Herbivore, y = Reproduced, group = He
 
 repro_herb #supplemental figure
 
+pred_prepro <- ggpredict(prob_repro, terms = c("S_elev[all]","Herbivore","year"), type = "re", interval="confidence")
+
+prepro_cline <-plot(pred_prepro, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c(cols), facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous(element_blank())
 
 #*******************************************************************************
 ####  Fecundity #####
@@ -559,6 +760,17 @@ Local_adaptation <-plot(pred_fec, show_data=TRUE, show_title =FALSE, show_legend
 
 Local_adaptation
 
+#testing
+pred_fec <- ggpredict(fecundity, terms = c("S_elev[all]","Water","Herbivore"), type = "re", interval="confidence")
+coefficients_fec <- emtrends(fecundity, specs = c("Water","Herbivore"), var = "S_elev",type="response")
+fec_table<- as.data.frame(summary(coefficients_fec))[c('Water','S_elev.trend', 'SE')]
+fec_table <- fec_table%>% mutate(
+  slopes = exp(S_elev.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+fec_table
+###
 
 fecundity_treatment <- ggplot(repro, aes(x = Water, y = Mature_length_siliques, group = Water)) +
   geom_violin(aes(fill = Water), alpha = 0.95, trim = T) +
@@ -633,7 +845,7 @@ head(traitdat)
 
 #Change baseline for plotting purposes
 traitdat $Water<-factor(traitdat $Water, levels = c("Restricted","Supplemental"))
-traitdat $Herbivore<-factor(traitdat $Herbivore, levels = c("Removal","Addition"))
+traitdat $Herbivore<-factor(traitdat $Herbivore, levels = c("Addition","Removal"))
 
 
 #*******************************************************************************
@@ -683,7 +895,7 @@ fec_table <- fec_table%>% mutate(
 
 sSUC_pred <- ggpredict(repro_model_full, terms = c("sSUC[all]", "Herbivore"), type = "re", interval="confidence")
 
-Succulence_reproduction_herbivore <-plot(full_sSUC, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols2,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Leaf succulence")+ scale_y_continuous("Probability of reproduction")
+Succulence_reproduction_herbivore <-plot(sSUC_pred, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols2,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Leaf succulence")+ scale_y_continuous("Probability of reproduction")
 
 
 sla_pred <- ggpredict(repro_model_full, terms = c("sSLA[all]", "Water"), type = "re", interval="confidence")
@@ -751,7 +963,8 @@ emtrends(fecund_modeltraits, specs = c("Water","Herbivore"), var = "sFT")
 
 #Context dependent selection
 standard_FT <- ggpredict(fecund_modeltraits, terms = c("sFT[all]", "Water","Herbivore"), type = "re", interval="confidence")
-FT_fecundity <-plot(standard_FT, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Flowering phenology")+ scale_y_continuous(element_blank())+ ylim(0,2000)
+
+FT_fecundity <-plot(standard_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c(cols), facet=TRUE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Flowering phenology")+ scale_y_continuous("Fecundity")
 
 
 #Duration
@@ -769,6 +982,15 @@ fec_table <- fec_table%>% mutate(
 standard_duration<- ggpredict(fecund_modeltraits, terms = c("sduration[all]", "Water","Herbivore"), type = "re", interval="confidence")
 
 duration_fecundity <-plot(standard_duration, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Flowering duration")+ scale_y_continuous(element_blank())+ ylim(0,2000)
+
+
+#height
+
+standard_height<- ggpredict(fecund_modeltraits, terms = c("s_max_height[all]"), type = "re", interval="confidence")
+
+
+height_fecundity <-plot(standard_height, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = c("black"), facet=TRUE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Height of tallest bolt at flowering")+ scale_y_continuous("Fecundity")
+
 
 
 
@@ -794,3 +1016,49 @@ figure4 <- ggarrange(
   ncol = 3, nrow = 1)
 figure4
 
+
+
+
+
+
+
+
+SLA_figure <- ggarrange(
+  sla_cline,
+  SLA_treatment,
+  SLA_reproduction_water,
+  SLA_fecundity,
+  labels = c("A", "B", "C", "D"),
+  ncol = 2, nrow = 2)
+
+FDF_figure <- ggarrange(
+  phen_cline,
+  FT_treatment,
+  FT_fecundity,
+  labels = c("A", "B", "C"),
+  ncol = 3, nrow = 1)
+
+
+Duration_figure <- ggarrange(
+  Duration_cline,
+  Duration_treatment,
+  duration_fecundity,
+  labels = c("A", "B", "C"),
+  ncol = 3, nrow = 1)
+
+
+Succulence_figure<- ggarrange(
+Succulence_cline,
+Succulence_treatment_year,
+Succulence_treatment_water,
+succulence_fecundity,
+Succulence_reproduction_herbivore,
+labels = c("A", "B", "C", "D","E"),
+ncol = 2, nrow = 3)
+
+height_figure <- ggarrange(
+  height_cline,
+  Height_treatment,
+  height_fecundity,
+  labels = c("A", "B", "C"),
+  ncol = 3, nrow = 1)
