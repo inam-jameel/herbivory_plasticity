@@ -950,25 +950,153 @@ figure5
 
 #####local trait means####
 
-local_grasshopper <- filter(grasshopper_no2021, elev_dist_km == 0)
+##### addition restricted
+local_grasshopper_RA <- filter(grasshopper_no2021, Herbivore == "Addition", Water == "Restricted")
+local_grasshopper_RA <- filter(local_grasshopper_RA, elev_dist >= -10, elev_dist <= 13)
 
-mean(local_grasshopper$SLA,na.rm = TRUE)
+
+#LAR 3.05586, 0.8239485
+mean(local_grasshopper_RA$avg_LAR,na.rm = TRUE)
+sd(local_grasshopper_RA$avg_LAR,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$avg_LAR[!is.na(local_grasshopper_RA$avg_LAR)]))
 
 
-#SLA 255.2456
-mean(local_grasshopper$SLA,na.rm = TRUE)
+#SLA 196.9138, 17.03393
+mean(local_grasshopper_RA$SLA,na.rm = TRUE)
+sd(local_grasshopper_RA$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$SLA[!is.na(local_grasshopper_RA$SLA)]))
 
-#Succulence 5.111271
-mean(local_grasshopper$succulence,na.rm = TRUE)*1000
+#Succulence 4.784538, 1.100558
+mean(local_grasshopper_RA$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_RA$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$succulence[!is.na(local_grasshopper_RA$succulence)]))*1000
 
-#day of flowering 173.5
-mean(local_grasshopper$FT_Adj,na.rm = TRUE)
 
-#duration 23
-mean(local_grasshopper$flowering_duration,na.rm = TRUE)
+#day of flowering 173.6667, 2.603417
+mean(local_grasshopper_RA$FT_Adj,na.rm = TRUE)
+sd(local_grasshopper_RA$FT_Adj,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$FT_Adj[!is.na(local_grasshopper_RA$FT_Adj)]))
 
-#height 31.43333
-mean(local_grasshopper$Max_height_flowering,na.rm = TRUE)
+
+#duration 19.83333, 1.661659
+mean(local_grasshopper_RA$flowering_duration,na.rm = TRUE)
+sd(local_grasshopper_RA$flowering_duration,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$flowering_duration[!is.na(local_grasshopper_RA$flowering_duration)]))
+
+
+#height 33.63333, 6.186904
+mean(local_grasshopper_RA$Max_height_flowering,na.rm = TRUE)
+sd(local_grasshopper_RA$Max_height_flowering,na.rm = TRUE) / sqrt(length(local_grasshopper_RA$Max_height_flowering[!is.na(local_grasshopper_RA$Max_height_flowering)]))
+
+
+
+
+##### addition supplemental
+local_grasshopper_AS <- filter(grasshopper_no2021, Herbivore == "Addition", Water == "Supplemental")
+local_grasshopper_AS <- filter(local_grasshopper_AS, elev_dist >= -10, elev_dist <= 13)
+
+
+#LAR 2.814267, 0.6896965
+mean(local_grasshopper_AS$avg_LAR,na.rm = TRUE)
+sd(local_grasshopper_AS$avg_LAR,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$avg_LAR[!is.na(local_grasshopper_AS$avg_LAR)]))
+
+
+#SLA 307.3608, 28.70361
+mean(local_grasshopper_AS$SLA,na.rm = TRUE)
+sd(local_grasshopper_AS$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$SLA[!is.na(local_grasshopper_AS$SLA)]))
+
+#Succulence 6.637142, 1.163733
+mean(local_grasshopper_AS$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_AS$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$succulence[!is.na(local_grasshopper_AS$succulence)]))*1000
+
+
+#day of flowering 177.5, 0.5
+mean(local_grasshopper_AS$FT_Adj,na.rm = TRUE)
+sd(local_grasshopper_AS$FT_Adj,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$FT_Adj[!is.na(local_grasshopper_AS$FT_Adj)]))
+
+
+#duration 23, 1
+mean(local_grasshopper_AS$flowering_duration,na.rm = TRUE)
+sd(local_grasshopper_AS$flowering_duration,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$flowering_duration[!is.na(local_grasshopper_AS$flowering_duration)]))
+
+
+#height 28.5, 5
+mean(local_grasshopper_AS$Max_height_flowering,na.rm = TRUE)
+sd(local_grasshopper_AS$Max_height_flowering,na.rm = TRUE) / sqrt(length(local_grasshopper_AS$Max_height_flowering[!is.na(local_grasshopper_AS$Max_height_flowering)]))
+
+
+
+
+##### removal restricted
+local_grasshopper_RR <- filter(grasshopper_no2021, Herbivore == "Removal", Water == "Restricted")
+local_grasshopper_RR <- filter(local_grasshopper_RR, elev_dist >= -10, elev_dist <= 13)
+
+
+#LAR 4.745702, 1.84663
+mean(local_grasshopper_RR$avg_LAR,na.rm = TRUE)
+sd(local_grasshopper_RR$avg_LAR,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$avg_LAR[!is.na(local_grasshopper_RR$avg_LAR)]))
+
+
+#SLA 206.9137, 25.64905
+mean(local_grasshopper_RR$SLA,na.rm = TRUE)
+sd(local_grasshopper_RR$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$SLA[!is.na(local_grasshopper_RR$SLA)]))
+
+#Succulence 5.540915, 0.797654
+mean(local_grasshopper_RR$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_RR$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$succulence[!is.na(local_grasshopper_RR$succulence)]))*1000
+
+
+#day of flowering 165.6667, 2.333333
+mean(local_grasshopper_RR$FT_Adj,na.rm = TRUE)
+sd(local_grasshopper_RR$FT_Adj,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$FT_Adj[!is.na(local_grasshopper_RR$FT_Adj)]))
+
+
+#duration 17.66667, 3.480102
+mean(local_grasshopper_RR$flowering_duration,na.rm = TRUE)
+sd(local_grasshopper_RR$flowering_duration,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$flowering_duration[!is.na(local_grasshopper_RR$flowering_duration)]))
+
+
+#height 18, 5.781868
+mean(local_grasshopper_RR$Max_height_flowering,na.rm = TRUE)
+sd(local_grasshopper_RR$Max_height_flowering,na.rm = TRUE) / sqrt(length(local_grasshopper_RR$Max_height_flowering[!is.na(local_grasshopper_RR$Max_height_flowering)]))
+
+
+
+
+
+
+##### removal supplemental
+local_grasshopper_RS <- filter(grasshopper_no2021, Herbivore == "Removal", Water == "Supplemental")
+local_grasshopper_RS <- filter(local_grasshopper_RS, elev_dist >= -10, elev_dist <= 13)
+
+
+#LAR 1.621326, 0.6246629
+mean(local_grasshopper_RS$avg_LAR,na.rm = TRUE)
+sd(local_grasshopper_RS$avg_LAR,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$avg_LAR[!is.na(local_grasshopper_RS$avg_LAR)]))
+
+
+#SLA 232.9859, 19.25452
+mean(local_grasshopper_RS$SLA,na.rm = TRUE)
+sd(local_grasshopper_RS$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$SLA[!is.na(local_grasshopper_RS$SLA)]))
+
+#Succulence 6.283142, 1.093187
+mean(local_grasshopper_RS$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_RS$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$succulence[!is.na(local_grasshopper_RS$succulence)]))*1000
+
+
+#day of flowering 172.6667, 6.765928
+mean(local_grasshopper_RS$FT_Adj,na.rm = TRUE)
+sd(local_grasshopper_RS$FT_Adj,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$FT_Adj[!is.na(local_grasshopper_RS$FT_Adj)]))
+
+
+#duration 24.66667, 4.910307
+mean(local_grasshopper_RS$flowering_duration,na.rm = TRUE)
+sd(local_grasshopper_RS$flowering_duration,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$flowering_duration[!is.na(local_grasshopper_RS$flowering_duration)]))
+
+
+#height 24.53333, 4.771559
+mean(local_grasshopper_RS$Max_height_flowering,na.rm = TRUE)
+sd(local_grasshopper_RS$Max_height_flowering,na.rm = TRUE) / sqrt(length(local_grasshopper_RS$Max_height_flowering[!is.na(local_grasshopper_RS$Max_height_flowering)]))
+
+
+
+
+
 
 
 
