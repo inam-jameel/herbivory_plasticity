@@ -147,6 +147,15 @@ Anova(VWC_mod,type="III")
 VWC_means<-emmeans(VWC_mod, ~ Water:Year, type="response", adjust = "sidak")
 cld(VWC_means, details=TRUE)
 
+
+VWC_mod_no_census <- glmmTMB(VWC ~Water*Year*Herbivore+(1|census), data= VWC_data,family=Gamma(link="log"))
+
+VWC_mod_no_cageblock <- glmmTMB(VWC ~Water*Year*Herbivore + (1|Cage_Block), data= VWC_data,family=Gamma(link="log"))
+
+
+anova(VWC_mod,VWC_mod_no_cageblock)
+anova(VWC_mod,VWC_mod_no_census)
+
 ##Box plot
 VWC_box<-ggplot(VWC_data, aes(x = Water, y = VWC, fill = Water)) +
   geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ 
@@ -272,10 +281,28 @@ simulationOutput <- simulateResiduals(fittedModel= sla_model, plot = T, re.form 
 
 SLA <-emmeans(sla_model, ~ Water*Herbivore, type="response", adjust = "sidak")
 cld(SLA, details=TRUE)
+Anova(sla_model, type = "III") 
+
+coefficients_SLA <- emtrends(sla_model, specs = c("year"), var = "S_elev",type="response")
+SLA_table<- as.data.frame(summary(coefficients_SLA))[c('year','S_elev.trend', 'SE')]
+SLA_table <- SLA_table%>% mutate(
+  slopes = exp(S_elev.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+
+sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+
+sla_model_no_cageblock <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype), data = foliar, family= lognormal(link="log"))
 
 
+anova(sla_model,sla_model_no_plantID)
+anova(sla_model,sla_model_no_genotype)
+anova(sla_model,sla_model_no_cageblock)
 
 pred_sla <- ggpredict(sla_model, terms = c("S_elev[all]", "year"), type = "re", interval="confidence")
+
 
 sla_cline <-plot(pred_sla, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = c("black","black"), facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation")+ scale_y_continuous("Specific leaf area")
 
@@ -326,6 +353,16 @@ succ_model <- glmmTMB(Suc_mg ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genoty
 Anova(succ_model, type = "III") # 
 #Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= succ_model, plot = T, re.form = NULL,allow.new.levels =T)
+
+succ_model_no_plantID <- glmmTMB(Suc_mg ~ Water*Herbivore*S_elev*year+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=lognormal(link="log"))
+
+succ_model_no_genotype <- glmmTMB(Suc_mg ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Cage_Block), data = succulence_data, family=lognormal(link="log"))
+
+succ_model_no_cageblock <- glmmTMB(Suc_mg ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype), data = succulence_data, family=lognormal(link="log"))
+
+anova(succ_model,succ_model_no_plantID)
+anova(succ_model,succ_model_no_genotype)
+anova(succ_model,succ_model_no_cageblock)
 
 
 succulence <-emmeans(succ_model, ~ Herbivore:Water, type="response", adjust = "sidak")
@@ -384,6 +421,16 @@ flowering<-subset(grasshopperFT, Ordinal_Date_flowering!="NA")
 FT_model<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
 Anova(FT_model, type = "III") # 
 
+FT_model_no_geno<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_no_cageblock<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_noplantID<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(FT_model,FT_model_no_geno)
+anova(FT_model,FT_model_no_cageblock)
+anova(FT_model,FT_model_noplantID)
+
+
+
 pred_FT <- ggpredict(FT_model, terms = c("S_elev[all]", "Water","Herbivore"), type = "re", interval="confidence")
 phen_cline <-plot(pred_FT, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Source elevation (m)")+ scale_y_continuous("Flowering phenology (ordinal day of year)")
 
@@ -419,6 +466,21 @@ flowering_duration<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore+year+(1|
 Anova(flowering_duration, type = "III") # elevation is significant, not year
 #Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= flowering_duration, plot = T, re.form = NULL,allow.new.levels =TRUE)
+
+
+flowering_duration_nogeno<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering)
+
+flowering_duration_nocageblock<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore+(1|Genotype)+(1| PlantID),data= flowering)
+
+flowering_duration_noplantid<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering)
+
+
+anova(flowering_duration,flowering_duration_nogeno)
+anova(flowering_duration,flowering_duration_nocageblock)
+anova(flowering_duration,flowering_duration_noplantid)
+
+
+
 
 pred_duration <- ggpredict(flowering_duration, terms = c("S_elev[all]","Water","Herbivore"), type = "re", interval="confidence")
 
@@ -462,6 +524,18 @@ Anova(max_height, type = "III") #
 #Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= max_height, plot = T, re.form = NULL)
 
+max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(max_height,max_height_nogeno)
+anova(max_height,max_height_nocageblock)
+anova(max_height,max_height_nopid)
+
+
+
 pred_height <- ggpredict(max_height, terms = c("S_elev[all]", "Water", "Herbivore"), type = "re", interval="confidence")
 
 
@@ -495,6 +569,18 @@ simulationOutput <- simulateResiduals(fittedModel= prob_repro, plot = T, re.form
 
 testOutliers(simulationOutput, type = c(
   "bootstrap"), nBoot = 100, plot = T)
+
+prob_repro_nogeno <- glmmTMB(Reproduced ~S_initdiam+ Water*Herbivore * S_elev *year+(1|PlantID) + (1|Cage_Block), data= grasshopperFT,family=binomial(link="logit"))
+
+prob_repro_nopid <- glmmTMB(Reproduced ~S_initdiam+ Water*Herbivore * S_elev *year + (1|Cage_Block)+(1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
+
+prob_repro_nocageblock <- glmmTMB(Reproduced ~S_initdiam+ Water*Herbivore * S_elev *year+(1|PlantID) + (1|Genotype), data= grasshopperFT,family=binomial(link="logit"))
+
+
+anova(prob_repro,prob_repro_nogeno)
+anova(prob_repro,prob_repro_nopid)
+anova(prob_repro,prob_repro_nocageblock)
+
 
 repro<-emmeans(prob_repro, ~ Water:Herbivore:year, type="response", adjust = "sidak")
 cld(repro, details=TRUE)
@@ -553,8 +639,20 @@ repro $Water <-factor(repro $Water, levels = c("Restricted","Supplemental"))
 fecundity <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*year* S_elev+(1|PlantID) + (1|Cage_Block)+(1|Genotype), data= repro,family=Gamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
 Anova(fecundity,type="III")
 
-
 summary(fecundity)
+
+
+
+fecundity_nopid <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*year* S_elev + (1|Cage_Block)+(1|Genotype), data= repro,family=Gamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+
+fecundity_nocb <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*year* S_elev+(1|PlantID) +(1|Genotype), data= repro,family=Gamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+
+fecundity_nogeno <- glmmTMB(Mature_length_siliques ~S_initdiam+Water*Herbivore*year* S_elev+(1|PlantID) + (1|Cage_Block), data= repro,family=Gamma(link="log"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+
+anova(fecundity,fecundity_nopid)
+anova(fecundity,fecundity_nocb)
+anova(fecundity,fecundity_nogeno)
+
 
 coefficients_fec <- emtrends(fecundity, specs = c("Water"), var = "S_elev",type="response")
 fec_table<- as.data.frame(summary(coefficients_fec))[c('Water','S_elev.trend', 'SE')]
@@ -566,7 +664,7 @@ fec_table <- fec_table%>% mutate(
 fec_table
 
 Fecmeans<-emmeans(fecundity, ~ Water:Herbivore, type="response")
-cld(Fecmeans, details=TRUE)
+cld(coefficients_fec, details=TRUE)
 
 pred_fec <- ggpredict(fecundity, terms = c("S_elev[all]","Water"), type = "re", interval="confidence")
 
@@ -1096,6 +1194,39 @@ sd(local_grasshopper_RS$Max_height_flowering,na.rm = TRUE) / sqrt(length(local_g
 
 
 
+##### SLA restricted
+local_grasshopper_R <- filter(grasshopper_no2021, Water == "Restricted")
+local_grasshopper_R <- filter(local_grasshopper_R, elev_dist >= -10, elev_dist <= 13)
+
+#SLA 201.7525, 14.97542
+mean(local_grasshopper_R$SLA,na.rm = TRUE)
+sd(local_grasshopper_R$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_R$SLA[!is.na(local_grasshopper_R$SLA)]))
+
+##### SLA supplemental
+local_grasshopper_S <- filter(grasshopper_no2021, Water == "Supplemental")
+local_grasshopper_S <- filter(local_grasshopper_S, elev_dist >= -10, elev_dist <= 13)
+
+#SLA 271.5506, 18.68434
+mean(local_grasshopper_S$SLA,na.rm = TRUE)
+sd(local_grasshopper_S$SLA,na.rm = TRUE) / sqrt(length(local_grasshopper_S$SLA[!is.na(local_grasshopper_S$SLA)]))
+
+
+
+##### succulence addition
+local_grasshopper_A <- filter(grasshopper_no2021, Herbivore == "Addition")
+local_grasshopper_A <- filter(local_grasshopper_A, elev_dist >= -10, elev_dist <= 13)
+
+#Succulence 5.649086, 0.8042984
+mean(local_grasshopper_A$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_A$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_A$succulence[!is.na(local_grasshopper_A$succulence)]))*1000
+
+##### succulence removal
+local_grasshopper_R <- filter(grasshopper_no2021, Herbivore == "Removal")
+local_grasshopper_R <- filter(local_grasshopper_R, elev_dist >= -10, elev_dist <= 13)
+
+#Succulence 5.885521, 0.654531
+mean(local_grasshopper_R$succulence,na.rm = TRUE)*1000
+sd(local_grasshopper_R$succulence,na.rm = TRUE) / sqrt(length(local_grasshopper_R$succulence[!is.na(local_grasshopper_R$succulence)]))*1000
 
 
 

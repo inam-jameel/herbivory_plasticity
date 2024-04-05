@@ -2,7 +2,7 @@
 #### PURPOSE:Examine fitness, traits in response to herbivory.
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 20 feb 24
+#### DATE LAST MODIFIED: 5 Apr 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -23,6 +23,7 @@ require(gamlss) # for running phenology model
 require(broom.mixed) #for making tables
 require(multcomp) #for pairwise comparisons
 require(vioplot) #for violin plots
+require(DHARMa)
 
 setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/field")
 
@@ -80,7 +81,7 @@ field <- filter(field, Exclude == "Include")
 repro <- filter(field, Reproduction == 1) #only plants that reproduced
 
 
-
+cols=c("#CC79A7","lightblue")
 
 #*******************************************************************************
 ####  fitness #####
@@ -93,10 +94,31 @@ repro <- filter(field, Reproduction == 1) #only plants that reproduced
 
 hurdle_Model <- glmmTMB(Mature_length_siliques ~Treatment*elev_dist_km*garden+Year+cohort+(1|PlantID) + (1| Garden_Block)+(1|Genotype), data=field, zi=~Treatment * elev_dist_km*garden+Year+cohort+(1|PlantID) + (1| Garden_Block)+(1|Genotype),family=ziGamma(link="log"))
 
+
+simulationOutput <- simulateResiduals(fittedModel= hurdle_Model, plot = T, re.form = NULL,allow.new.levels =T)
+
+
 ##This is the ANOVA table for the logistic regression part (probability of reproduction).
 Anova(hurdle_Model,type="III", component="zi")
 ##This is the ANOVA table for the count part (fecundity amongst individuals that reproduced). 
 Anova(hurdle_Model,type="III", component="cond")
+
+coefficients_fec <- emtrends(hurdle_Model, specs = c("Treatment","garden"), var = "elev_dist_km",type="response")
+fec_table<- as.data.frame(summary(coefficients_fec))[c('Treatment',"garden",'elev_dist_km.trend', 'SE')]
+fec_table <- fec_table%>% mutate(
+  slopes = exp(elev_dist_km.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+fec_table
+
+Fecmeans<-emmeans(fecundity, ~ Water:Herbivore, type="response")
+cld(coefficients_fec, details=TRUE)
+
+pred_fec <- ggpredict(hurdle_Model, terms = c("elev_dist_km[all]","Treatment"), type = "re", interval="confidence")
+
+
+Local_adaptation <-plot(pred_fec, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=FALSE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation (m)")+ scale_y_continuous("Fecundity (length of mature siliques)")+ ylim(0,1000)
 
 library(ggeffects)
 
@@ -165,8 +187,18 @@ mod_repro_f <- glmmTMB(Mature_length_siliques ~elev_dist_km*Treatment*garden+Yea
 
 Anova(mod_repro_f, type="III") 
 
-plot(predictorEffects(mod_repro_f, ~ elev_dist_km), type="response",partial.residuals=FALSE, confint=list(style="auto"), xlab="Population source elevation (Km)", ylab="Fecundity",line=list(multiline=TRUE, lty=1:2,col=c("#6699cc","#882255")))
+plot(predictorEffects(mod_repro_f, ~ elev_dist_km), type="response",partial.residuals=FALSE, confint=list(style="auto"), xlab="Population source elevation (Km)", ylab="Fecundity",line=list(multiline=TRUE, lty=1:2,col=c(cols)))
 
+
+coefficients_fec <- emtrends(mod_repro_f, specs = c("garden"), var = "elev_dist_km",type="response")
+fec_table<- as.data.frame(summary(coefficients_fec))[c('garden','elev_dist_km.trend', 'SE')]
+fec_table <- fec_table%>% mutate(
+  slopes = exp(elev_dist_km.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+result <- ggpredict(mod_repro_f, c("elev_dist_km","garden"))
+plot(result, show_residuals=TRUE,)
 
 
 ###### local adaptation models: fitness ~ T x elevational distance (source – transplant) ######
