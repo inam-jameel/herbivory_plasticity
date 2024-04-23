@@ -355,7 +355,7 @@ Empty$Mature_length_siliques_2023[target_row]<-sum(sub[,c(58,
 
 
 
-check1 <-subset(Empty, PlantID=="S12450")
+check1 <-subset(Empty, PlantID=="S12050")
 check2 <-subset(Empty, PlantID=="S11344")
 
 library(openxlsx)

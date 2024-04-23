@@ -9,7 +9,7 @@ library(sp)
 library(rasterVis)
 library(dplyr)
 library(geodata) #to download the tif files straight from world clim. 
-library(rgdal) #load for the AI 
+#library(rgdal) #load for the AI 
 library(ncdf4) #for extracting the snowclim data (they are in .nc format)
 
 
@@ -37,12 +37,12 @@ latlongs <-select(latlong,-population) #remove the pop column for the extract co
 #For a definition of the bioclimatic variables: http://www.worldclim.org/bioclim
 
 #reading in the tif files from the 24tb, 
-avg_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tavg.tif") 
-min_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tmin.tif")
-max_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tmax.tif")
-precip <- raster("wc2.1_tiles/tile_15_wc2.1_30s_prec.tif")
+#avg_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tavg.tif") 
+#min_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tmin.tif")
+#max_temp <- raster("wc2.1_tiles/tile_15_wc2.1_30s_tmax.tif")
+#precip <- raster("wc2.1_tiles/tile_15_wc2.1_30s_prec.tif")
 elev <-raster("wc2.1_tiles/tile_15_wc2.1_30s_elev.tif")
-bioclim_elev <- raster("wc2.1_tiles/tile_15_wc2.1_30s_bio.tif") #i think some of these values are incorrect. for example, bio clim 12 is supposed to be the precip of the driest month, but is in the 800s
+#bioclim_elev <- raster("wc2.1_tiles/tile_15_wc2.1_30s_bio.tif") #i think some of these values are incorrect. for example, bio clim 12 is supposed to be the precip of the driest month, but is in the 800s
 
 ##Plotting
 plot(avg_temp)
@@ -60,12 +60,15 @@ plot(bioclim_var)
 
 
 setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper/") 
-
-
 latlong <-read.csv("grasshopper_population_lats_longs.csv")
 
 
-newext<-c(-107.08,-106.79,38.69,39.05) #coordinates of gothic valley
+
+setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/field/") 
+latlong <-read.csv("field_population_lats_longs.csv")
+
+
+newext<-c(-107.10,-106.79,38.69,39.05) #coordinates of gothic valley
 
 elev.new<-crop(elev,newext)
 
@@ -75,6 +78,18 @@ elev.new<-crop(elev,newext)
 plot(elev.new$tile_15_wc2.1_30s_elev)
 #plotting the points onto the map
 points(latlong $Longitude, latlong $Latitude, col='black', pch=20)
+
+library(dplyr)
+
+#schofield <-filter(latlong, population == 250)
+
+#points(schofield $Longitude, schofield $Latitude, col='red', pch=8, cex=2)
+
+
+gothic <-filter(latlong, population == 283)
+
+points(gothic $Longitude, gothic $Latitude, col='red', pch=18, cex=2)
+
 #pcoordinates(latlong)<-c("Longitude", "Latitude")
 
 
