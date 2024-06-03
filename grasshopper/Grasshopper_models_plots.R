@@ -1141,7 +1141,7 @@ figure3 <- ggarrange(
   Succulence_reproduction_herbivore,
   succulence_fecundity,
   
-  labels = c("A", "B", "C", "D", "A", "B", "C", "D"),
+  labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
   ncol = 2, nrow = 4)
 figure3
 
@@ -1159,7 +1159,7 @@ figure4 <- ggarrange(
   height_cline,
   height_treatment,
   height_fecundity,
-  labels = c("A", "B", "C","A", "B", "C","A", "B", "C"),
+  labels = c("A", "B", "C","D", "E", "F","G", "H", "I"),
   ncol = 3, nrow = 3)
 figure4
 

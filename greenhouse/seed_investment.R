@@ -12,8 +12,16 @@ matseeds$exp_ID<-as.factor(matseeds$exp_ID)
 #This rescales source elevation from meters to km
 matseeds$elev_km<-matseeds $elevation/1000
 
+##Change the base line for offspring
+matseeds $treatment <-factor(matseeds $treatment, levels = c("Herbivorized", "Control"))
 
-mod1 <- lmer(weight~ LAR_max_S2*elev_km + (1|exp_ID), data=matseeds )
+
+
+
+mod1 <- glmmTMB(weight ~ treatment*elev_km+(1|exp_ID)+(1|block)+(1|genotype), data = matseeds, family=lognormal(link="log"))
+
+
+#mod1 <- lmer(weight~ treatment*elev_km + (1|exp_ID), data=matseeds )
 Anova(mod1, type = "III")
 plot(mod1)
 
@@ -21,13 +29,18 @@ plot(mod1)
 mod2 <- glmmTMB(weight ~LAR_max_S2*elev_km + (1|exp_ID), data= matseeds)
 
 
-simulationOutput <- simulateResiduals(fittedModel= mod2, plot = T, re.form = NULL,allow.new.levels =TRUE)
+pred_seed <- ggpredict(mod1, terms = c("elev_km[all]","treatment"), type = "re", interval="confidence")
+
+seed_cline <-plot(pred_seed, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols, facet=TRUE)+theme_classic()+theme(legend.position="right")+scale_x_continuous("Source elevation")+ scale_y_continuous("Leaf succulence (mg)")
+
+
+simulationOutput <- simulateResiduals(fittedModel= mod1, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
 
 Anova(mod2, type = "III")
 
 
-weight_means<-emmeans(mod2, ~ treatment*elev_km, type="response", adjust = "sidak")
+weight_means<-emmeans(mod1, ~ treatment*elev_km, type="response", adjust = "sidak")
 
 plot(weight_means, comparisons = TRUE)
 

@@ -152,7 +152,7 @@ visreg(beta_modelquad, 'elev', by= "mat_avgLAR", overlay = TRUE, type="condition
        points=list(cex=1.5,col=c("#6699cc","#882255",""))) 
 
 
-gamlss_mod1<- gamlss (formula=y_beta~S_weight+time+elevmat_treat+random(batch)+random(genotype)+ random(mat_exp_ID),family=BE, data=data_LAR,control = gamlss.control(n.cyc = 500))
+gamlss_mod1<- gamlss (formula=y_beta~S_weight+time+elev+mat_treat+random(batch)+random(genotype)+ random(mat_exp_ID),family=BE, data=data_LAR,control = gamlss.control(n.cyc = 500))
 
 
 
@@ -161,7 +161,7 @@ plot(gamlss_mod1)
 summary(gamlss_mod1)
 
 
-visreg(gamlss_mod1, 'elev', by= "mat_treat", overlay = TRUE, type="conditional", 
+visreg(gamlss_mod1, 'S_weight', overlay = TRUE, type="conditional", 
        #scale = "response", 
        xlab="Source Elevation (Km)", ylab="Percentage leaf area herbivorized", partial=TRUE, cex.lab = 1.5,cex.axis = 1.5,
        fill=list(col="blue"),
