@@ -2,7 +2,7 @@
 #### PURPOSE:Examine fitness, traits in response to herbivory.
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 26 Apr 24
+#### DATE LAST MODIFIED: 28 Jun 24
 
 
 # remove objects and clear workspace
@@ -105,7 +105,7 @@ traitdat $S_initdiam<-scale(traitdat $ini_size,center=TRUE, scale=TRUE)
 #traitdat $sLAR_max<-scale(traitdat $max_LAR,center=TRUE,scale=TRUE)
 traitdat $sLAR<-scale(traitdat $avg_LAR_2,center=TRUE,scale=TRUE)
 traitdat $sSLA<-scale(traitdat $SLA,center=TRUE,scale=TRUE)
-#traitdat $sSUC<-scale(traitdat $succulence,center=TRUE,scale=TRUE)
+traitdat $sSUC<-scale(traitdat $succulence,center=TRUE,scale=TRUE)
 traitdat $sFT<-scale(traitdat $Date_flowering_exp,center=TRUE,scale=TRUE)
 traitdat $sheight<-scale(traitdat $Height1_flowering,center=TRUE,scale=TRUE)
 
@@ -123,8 +123,8 @@ head(traitdat)
 
 
 repro_model_full <-glmmTMB(Reproduction~S_initdiam+treatment*mat_treat*Season+
-                             treatment*mat_treat*sLAR+
-                             #treatment*mat_treat*sSUC+#I(sSUC^2)*treatment+
+                             #treatment*mat_treat*sLAR+
+                             treatment*mat_treat*sSUC+#I(sSUC^2)*treatment+
                              treatment*mat_treat*sSLA+
                              #treatment*mat_treat*sleaf#+I(sleaf^2) 
                            +(1|exp_ID)+(1|block)+(1|genotype),data=traitdat,family=binomial(link="logit"),control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
@@ -150,7 +150,8 @@ anova(repro_model_full,repro_model_full_block)
 
 #SLA, seelction for increased SLA across trt
 
-sSLA_pred <- ggpredict(repro_model_full, terms = c("sSLA[all]", "treatment","mat_treat"), type = "re", interval="confidence")
+sSLA_pred <- ggpredict(repro_model_full, terms = c("sSLA[all]"#, "treatment","mat_treat"
+                                                   ), type = "re", interval="confidence")
 
 SLA_reproduction_treatment <-plot(sSLA_pred, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Probability of reproduction")+ ylim(0,1)
 
@@ -211,11 +212,11 @@ mean(traitdat$avg_LAR,na.rm=TRUE)
 
 #succulence, context dependent, selection for reduced succulence under control
 
-#sSUC_pred <- ggpredict(repro_model_full, terms = c("sSUC[all]","treatment"), type = "re", interval="confidence")
+sSUC_pred <- ggpredict(repro_model_full, terms = c("sSUC[all]","treatment"), type = "re", interval="confidence")
 
-#Succulence_reproduction <-plot(sSUC_pred, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Leaf succulence")+ scale_y_continuous("Probability of reproduction")
+Succulence_reproduction <-plot(sSUC_pred, show_data=TRUE, show_title =FALSE, show_legend=FALSE, colors = cols,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Leaf succulence")+ scale_y_continuous("Probability of reproduction")
 
-#emtrends(repro_model_full, specs = c("treatment"), var = "sSUC")
+emtrends(repro_model_full, specs = c("treatment"), var = "sSUC")
 
 #repro <- emtrends(repro_model_full, specs = c("treatment"), var = "sSUC",type="response")
 #repro_table<- as.data.frame(summary(repro))[c('treatment','sSUC.trend', 'SE')]
@@ -332,16 +333,18 @@ traitdatRepro <- filter(traitdat, Reproduction == 1 )
 #traitdatRepro $sLAR_max<-scale(traitdatRepro $max_LAR,center=TRUE,scale=TRUE)
 traitdatRepro $sLAR<-scale(traitdatRepro $avg_LAR,center=TRUE,scale=TRUE)
 traitdatRepro $sSLA<-scale(traitdatRepro $SLA,center=TRUE,scale=TRUE)
-#traitdatRepro $sSUC<-scale(traitdatRepro $succulence,center=TRUE,scale=TRUE)
+traitdatRepro $sSUC<-scale(traitdatRepro $succulence,center=TRUE,scale=TRUE)
 traitdatRepro $sFT<-scale(traitdatRepro $Date_flowering_exp,center=TRUE,scale=TRUE)
 traitdatRepro $sheight<-scale(traitdatRepro $Height1_flowering,center=TRUE,scale=TRUE)
 
 fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+treatment*mat_treat*Season +
                                treatment*mat_treat* sSLA+
-                               treatment*mat_treat* sLAR+
-                               sFT*treatment*mat_treat+
-                               sheight*treatment*mat_treat+ (1|exp_ID)+
-                               (1|block)+(1|genotype),data=traitdatRepro,family=Gamma(link="log"))
+                              # treatment*mat_treat* sLAR+
+                               treatment*mat_treat*sSUC+
+                               #sFT*treatment*mat_treat+
+                               #sheight*treatment*mat_treat
+                             
+                               +(1|exp_ID)+(1|block)+(1|genotype),data=traitdatRepro,family=Gamma(link="log"))
 
 
 #fecund_modeltraits <-glmmTMB(Mature_silique_number~ S_initdiam+treatment*mat_treat*Season +
@@ -412,7 +415,7 @@ emtrends(fecund_modeltraits, specs = c("treatment"), var = "sSLA")
 #Context dependent selection
 standard_sSLA <- ggpredict(fecund_modeltraits, terms = c("sSLA[all]","treatment"), type = "re", interval="confidence")
 
-SLA_fecundity <-plot(standard_sSLA, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme_classic()+theme(legend.position="none")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Fecundity (Summed length of siliques)")+ ylim(0,2000)
+SLA_fecundity <-plot(standard_sSLA, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols, facet=FALSE)+theme_classic()+theme()+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Fecundity (Summed length of siliques)")+ ylim(0,2000)
 
 emtrends(fecund_modeltraits, specs = c("treatment"), var = "sSLA")
 

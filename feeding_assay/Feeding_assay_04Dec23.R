@@ -2,7 +2,7 @@
 #### PURPOSE:Examine LAR in response to maternal herbivory treatment.
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 14 Dec 23
+#### DATE LAST MODIFIED: 6 Jul 24
 
 # remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -10,19 +10,18 @@ rm(list = ls(all=TRUE))
 
 #require packages
 require(lme4) #for running linear mixed models
-require(ggplot2) #for plotting 
-require(visreg) # for plotting
-require(car) # to run ANOVA on model output
-require(plyr) # for data wrangling
-require(dplyr) # for data wrangling
-require(tidyr) # for data wrangling
-require(effects) # for plotting
-require(emmeans) #for plotting
-require(glmmTMB) # for running survival model, have to load twice
-require(gamlss) # for running phenology model
-require(broom.mixed) #for making tables
-require(multcomp) #for pairwise comparisons
-require(vioplot) #for violin plots
+require("ggplot2") #for plotting 
+require("visreg") # for plotting
+require("car") # to run ANOVA on model output
+require("plyr") # for data wrangling
+require("dplyr") # for data wrangling
+require("tidyr") # for data wrangling
+require("effects") # for plotting
+require("emmeans") #for plotting
+require("glmmTMB") # for running survival model, have to load twice
+require("gamlss") # for running phenology model
+require("multcomp") #for pairwise comparisons
+require("vioplot") #for violin plots
 
 
 # set working directory
@@ -40,9 +39,13 @@ Feeding_trial$time<-scale(Feeding_trial$elapsed_time,center=TRUE, scale=TRUE) #n
 
 #Change treatment, genotype, batch to factor
 Feeding_trial$mat_treat<-as.factor(Feeding_trial$mat_treat)
+Feeding_trial$Exp_ID <-as.factor(Feeding_trial$Exp_ID)
 Feeding_trial$genotype <-as.factor(Feeding_trial$genotype)
 Feeding_trial$batch<-as.factor(Feeding_trial$batch)
 Feeding_trial$mat_exp_ID <-as.factor(Feeding_trial$mat_exp_ID) #need to include this as random effect since multiple reps per mat line
+
+#set colors
+cols=c("#882255","#56B4E9")
 
 #LAR plots
 plot(Feeding_trial$elev, Feeding_trial$LAR, xlab="elev", ylab="LAR")
@@ -151,6 +154,41 @@ visreg(beta_modelquad, 'elev', by= "mat_avgLAR", overlay = TRUE, type="condition
        line=list(col=c("#6699cc","#882255","grey")),
        points=list(cex=1.5,col=c("#6699cc","#882255",""))) 
 
+
+#####
+
+#Box_plot
+LAR_box <-ggplot(data_LAR, aes(x = mat_treat, y = y_beta, fill = mat_treat)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal herbivore treatment")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
+  geom_point(pch = 21, size = .5,position = position_jitterdodge(0.3))
+
+LAR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                  axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                  panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("Herbivory", "Naïve")) +  scale_fill_manual(values = cols, name = "Maternal herbivory treatment", labels = c("Herbivory","Naïve"))#+facet_grid(~Season+mat_treat)
+
+
+
+
+## model
+LAR_Model<- gamlss (formula= y_beta ~elev*mat_treat*ini_insect_weight.mcg.+ random(batch)+random(mat_exp_ID) +random(genotype),family=BE(mu.link = "logit"), data=data_LAR,control = gamlss.control(n.cyc = 500))
+
+plot(LAR_Model)
+summary(LAR_Model)
+drop1(LAR_Model)
+
+
+
+
+## model
+LAR_Model<- gamlss (formula= y_beta ~elev*mat_treat+S_weight+ random(batch)+random(mat_exp_ID) +random(genotype),family=BE(mu.link = "logit"), data=data_LAR,control = gamlss.control(n.cyc = 500))
+
+plot(LAR_Model)
+summary(LAR_Model)
+drop1(LAR_Model)
+
+
+
+####
 
 gamlss_mod1<- gamlss (formula=y_beta~S_weight+time+elev+mat_treat+random(batch)+random(genotype)+ random(mat_exp_ID),family=BE, data=data_LAR,control = gamlss.control(n.cyc = 500))
 
@@ -268,12 +306,13 @@ data_RGR <- drop_na(data_RGR,LAR) #this removes the rows without LAR values
 ggplot(data_RGR, aes(x= RGR))+ geom_histogram(color="black", fill="white")
 
 #gamlss model
-gamlss_rgr<- gamlss (formula=RGR~elev+mat_avgLAR+random(batch)+random(genotype)+ random(mat_exp_ID), data=data_RGR,control = gamlss.control(n.cyc = 500))
+gamlss_rgr<- gamlss (formula=RGR~elev+mat_treat+random(batch)+random(genotype)+ random(mat_exp_ID), data=data_RGR,control = gamlss.control(n.cyc = 500))
 
-plot(gamlss_mod4)
-summary(gamlss_mod4)
+plot(gamlss_rgr)
+summary(gamlss_rgr)
+drop1(gamlss_rgr)
 
-
+hist(data_RGR$RGR)
 
 #lmer model
 RGR <-lmer (RGR~ elev+mat_avgLAR +time
@@ -282,6 +321,16 @@ RGR <-lmer (RGR~ elev+mat_avgLAR +time
             +(1|mat_exp_ID)
             , data = data_RGR,
             control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+
+#lmer model
+RGR <-lmer (RGR~ elev*mat_treat
+            +(1|genotype)
+            +(1|batch)
+            +(1|mat_exp_ID)
+            , data = data_RGR,
+            control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+
+plot(RGR)
 
 Anova(RGR,type="III")
 
@@ -309,11 +358,39 @@ R <- RGR2 + scale_color_grey() + theme_classic() + theme(text = element_text(siz
 print(R)
 
 
+RGR_box <-ggplot(data_RGR, aes(x = mat_treat, y = RGR, fill = mat_treat)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal herbivore treatment")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
+  geom_point(pch = 21, size = .5,position = position_jitterdodge(0.3))
+
+RGR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                       axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                       panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("Herbivory", "Naïve")) +  scale_fill_manual(values = cols, name = "Maternal herbivory treatment", labels = c("Herbivory","Naïve"))#+facet_grid(~Season+mat_treat)
+
+
 
 ### final insect weight ####
 mod_2<- lmer(final_insect_weight ~ elev*mat_treat + time + ini_insect_weight.mcg.+ (1|genotype) +(1|batch), control = lmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e7)), data = data_RGR)
 Anova(mod_2,type="III")
 plot(mod_2)
+
+
+final_weight_model <- glmmTMB(final_insect_weight ~ mat_treat*elev+(1|Exp_ID)+(1|genotype)+(1|batch), data = data_RGR, family= lognormal(link="log"))
+Anova(final_weight_model, type = "III") # 
+#Use the DHARMa package to examine the residuals, which are reasonable
+
+simulationOutput <- simulateResiduals(fittedModel= final_weight_model, plot = T, re.form = NULL,allow.new.levels =T)
+library(DHARMa)
+
+
+#Box_plot
+final_weight <-ggplot(data_RGR, aes(x = mat_treat, y = final_insect_weight, fill = mat_treat)) +
+  geom_boxplot(outlier.shape = NA) +xlab("Maternal herbivore treatment")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +
+  geom_point(pch = 21, size = .5,position = position_jitterdodge(0.3))
+
+final_weight + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                  axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                  panel.grid.minor=element_blank(),legend.position = "top")+ scale_x_discrete(labels=c("Herbivory", "Naïve")) +  scale_fill_manual(values = cols, name = "Maternal herbivory treatment", labels = c("Herbivory","Naïve"))#+facet_grid(~Season+mat_treat)
+
 
 
 visreg(mod_2, "elev", by="mat_treat")

@@ -2,7 +2,7 @@
 #### PURPOSE:Examine fitness, traits in response to herbivory.
 #### AUTHOR: Inam Jameel
 # AUTHOR: Inam Jameel
-#### DATE LAST MODIFIED: 06 May 24
+#### DATE LAST MODIFIED: 27 Jun 24
 
 
 
@@ -84,9 +84,11 @@ cols=c("#882255","#56B4E9")
 
 #reformat datafile
 
+#if want to remove the naïve offspring environment
+herb <- filter(greenhouse, treatment != "Naïve")
 
-LAR_data<- greenhouse %>% pivot_longer(cols=c("LAR_1","LAR_2"
-                                              ,"LAR_3"
+LAR_data<- herb %>% pivot_longer(cols=c("LAR_1","LAR_2"
+                                              #,"LAR_3"
                                               ),
                                         names_to='census',
                                         values_to='LAR')
@@ -95,7 +97,7 @@ LAR_data <- dplyr::select(LAR_data, LAR, elevation, genotype, mat_treat, treatme
 
 LAR_data$census[LAR_data$census == "LAR_1"] <- "1"
 LAR_data$census[LAR_data$census == "LAR_2"] <- "2"
-LAR_data$census[LAR_data$census == "LAR_3"] <- "3"
+#LAR_data$census[LAR_data$census == "LAR_3"] <- "3"
 
 
 LAR_data $census <-as.factor(LAR_data $census)
@@ -136,11 +138,7 @@ LAR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = ele
 
 
 ## model
-LAR_Model<- gamlss (formula= y_beta ~S_elev*treatment*mat_treat*Season+ random(censusSeason) + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
-
-
-LAR <-emmeans(LAR_Model, ~ treatment*mat_treat*Season, type="response", adjust = "sidak")
-
+LAR_Model<- gamlss (formula= y_beta ~S_elev*mat_treat*Season+ random(censusSeason) + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
 
 plot(LAR_Model)
 summary(LAR_Model)
@@ -177,7 +175,9 @@ damage_treatment<-LAR_box + theme_classic() + theme(text = element_text(size=10)
 
 #cline, plotting predicted data
 damage_cline= ggplot(newdf2, aes(x= S_elev,y= predicted, group= treatment, 
-                                 colour= treatment))+geom_point(pch = 20) + scale_y_continuous("Leaf area removed by herbivores (proportion)")+ scale_x_continuous("Source elevation")   + theme_classic() + facet_grid(mat_treat~ Season) + theme(axis.title.y = element_text(size=10, colour = "black")) +theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"),axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),panel.grid.minor=element_blank(),legend.position = "Top")+geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  se = FALSE) +scale_colour_manual(values = cols, name = "Water availability", labels = c("Restricted","Supplemental"))
+                                 colour= treatment))+geom_point(pch = 20) + scale_y_continuous("Leaf area removed by herbivores (proportion)")+ scale_x_continuous("Source elevation")   + theme_classic() + 
+  facet_grid(~Season+mat_treat) + 
+  theme(axis.title.y = element_text(size=10, colour = "black")) +theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"),axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(),panel.grid.minor=element_blank(),legend.position = "Top")+geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  se = FALSE) +scale_colour_manual(values = cols, name = "Water availability", labels = c("Restricted","Supplemental"))
 
 
 
@@ -232,6 +232,12 @@ plot(LAR_Model)
 
 #Subsets of models for drop 1
 LAR_Model_three<- gamlss (formula= y_beta ~S_elev*treatment*mat_treat+S_elev*treatment*Season+S_elev* mat_treat*Season+ treatment* mat_treat*Season+ random(censusSeason) + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+
+
+LAR_Model_three<- gamlss (formula= y_beta ~S_elev*mat_treat+S_elev*Season+mat_treat*Season+ random(censusSeason) + random(exp_ID)+ random(block)+random(genotype),family=BE(mu.link = "logit"), data=LAR_data,control = gamlss.control(n.cyc = 500))
+drop1(LAR_Model_three)
+
+
 drop1(LAR_Model_three)
 
 #Subsets of models for drop 1
@@ -537,7 +543,7 @@ succulence_data <- dplyr::select(foliar, succulence, elevation, genotype, treatm
 
 succulence_data <- drop_na(succulence_data,succulence) 
 
-succ_model <- glmmTMB(Suc_mg ~ treatment*mat_treat*S_elev+Season+(1|exp_ID)+(1|genotype)+(1|block), data = succulence_data, family=lognormal(link="log"))
+succ_model <- glmmTMB(Suc_mg ~ treatment*mat_treat*S_elev+Season+(1|exp_ID)+(1|genotype)+(1|block), data = succulence_data)#, family=lognormal(link="log"))
 Anova(succ_model, type = "III") # 
 
 #Use the DHARMa package to examine the residuals
