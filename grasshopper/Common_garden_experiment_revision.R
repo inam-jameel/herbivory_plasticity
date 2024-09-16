@@ -325,10 +325,10 @@ drop1(LAR_Model_one)
 #### Specific Leaf Area #####
 #*******************************************************************************
 
-sla_model_1 <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-Anova(sla_model_1, type = "III") # 
+#sla_model_1 <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+#Anova(sla_model_1, type = "III") # 
 
-simulationOutput <- simulateResiduals(fittedModel= sla_model_1, plot = T, re.form = NULL,allow.new.levels =T)
+#simulationOutput <- simulateResiduals(fittedModel= sla_model_1, plot = T, re.form = NULL,allow.new.levels =T)
 
 
 sla_model_2 <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
@@ -336,10 +336,10 @@ Anova(sla_model_2, type = "III") #
   ##Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= sla_model_2, plot = T, re.form = NULL,allow.new.levels =T)
 
-sla_model_3 <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-Anova(sla_model_3, type = "III") # 
+#sla_model_3 <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+#Anova(sla_model_3, type = "III") # 
 ##Use the DHARMa package to examine the residuals, which are reasonable
-simulationOutput <- simulateResiduals(fittedModel= sla_model_3, plot = T, re.form = NULL,allow.new.levels =T)
+#simulationOutput <- simulateResiduals(fittedModel= sla_model_3, plot = T, re.form = NULL,allow.new.levels =T)
 
 
 SLA <-emmeans(sla_model, ~ Water, type="response", adjust = "sidak")
