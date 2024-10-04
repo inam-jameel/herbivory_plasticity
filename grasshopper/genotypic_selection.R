@@ -196,57 +196,31 @@ cols=c("#CC79A7","lightblue") #for water treatment
 cols2=c("#882255","#77DDAA") #for the grasshopper treatment
 
 
+# aggregate sum of marks with subjects 
+
+##Exclude 2021 because we only have LAR data from that year and only 2 plants Reproduced
+grasshopper_no2021<-subset(grasshopper, year!="2021")
+
+planted <- aggregate(grasshopper$Overwinter_survival_2022, list(Genotype = grasshopper$Genotype, year = grasshopper$year,  Water = grasshopper$Water,  Herbivore = grasshopper$Herbivore), FUN=sum)
+
+planted <- aggregate(grasshopper_no2021$Overwinter_survival_2022, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum)
+
+survived <- aggregate(grasshopper_no2021$Season_survival, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum)
+
+reproduced <- aggregate(grasshopper_no2021$Reproduced, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum) 
+
+plant_surv <- merge(planted, survived, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+      by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
+
+ps_repro <- merge(plant_surv, reproduced, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+                    by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
+
+write.csv(ps_repro,file="summary_planted.csv")
+
+
 #*******************************************************************************
 #### Herbivore damage #######
 #*******************************************************************************
-
-##* Censuses 1 and 2 occurred for all years. Census 3 was for 2021 and 2022 only
-
-##reformat datafile
-
-LAR_data_long_form<- grasshopper %>% pivot_longer(cols=c("LAR_1","LAR_2",
-#                                                         "LAR_3"
-                                                         ),
-                                                  names_to='census',
-                                                  values_to='LAR')
-
-LAR_data_long_form <- dplyr::select(LAR_data_long_form, LAR, elevation, Genotype, population, Cage, Water, Herbivore, Block, PlantID, init.diam, S_initdiam, Cage_Block, elev_km, S_elev,census, year)
-
-LAR_data_long_form$census[LAR_data_long_form$census == "LAR_1"] <- "1"
-LAR_data_long_form$census[LAR_data_long_form$census == "LAR_2"] <- "2"
-#LAR_data_long_form$census[LAR_data_long_form$census == "LAR_3"] <-"3"
-
-LAR_data_long_form $census <-as.factor(LAR_data_long_form $census)
-
-LAR_data_long_form $year <-as.factor(LAR_data_long_form $year)
-##Let's concatenate census and year
-LAR_data_long_form $census_year<-interaction(LAR_data_long_form$census, LAR_data_long_form$year,sep = "_")
-
-
-LAR_data_long_form$LAR_prop<-LAR_data_long_form $LAR/100
-hist(LAR_data_long_form$LAR_prop)
-LAR_data_long_form <- drop_na(LAR_data_long_form,LAR_prop) 
-
-n<-nrow(LAR_data_long_form)
-
-##this is the beta transformation, which transforms all values of 0 to a small value.
-
-LAR_data_long_form $y_beta<- (LAR_data_long_form $LAR_prop*(n-1) + 0.5)/n
-
-hist(LAR_data_long_form $y_beta)
-
-min(LAR_data_long_form $y_beta)
-
-max(LAR_data_long_form $y_beta)
-
-
-LAR_Model_three<- gamlss (formula= y_beta ~Genotype*Water*Herbivore+year+ random(census_year)+ random(Cage_Block),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
-
-LAR_model <- glmmTMB(y_beta ~ Water*Herbivore*Genotype+year
-                      #+(1|census_year)
-                      +(1|Cage_Block), data = LAR_data_long_form, 
-                      family=beta_family())
-
 
 ##Exclude 2021 because we only have LAR data from that year and only 2 plants Reproduced
 grasshopper_no2021<-subset(grasshopper, year!="2021")
@@ -271,7 +245,13 @@ LAR_model <- glmmTMB(y_beta ~ Water*Herbivore*Genotype*year
 
 lsmeans_LAR <-emmeans (LAR_model, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
 
-write.csv(lsmeans_LAR,file="LSmeans_LAR.csv")
+LAR <- as.data.frame(lsmeans_LAR)[c('Genotype', 'year', 'Water', 'Herbivore','response', 'SE')]
+
+
+test <- merge(ps_repro, LAR, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+                  by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
+
+#write.csv(lsmeans_LAR,file="LSmeans_LAR.csv")
 
 
 #*******************************************************************************
@@ -284,6 +264,13 @@ sla_model_2 <- glmmTMB(SLA ~ Water*Herbivore*Genotype*year+(1|Cage_Block), data 
 lsmeans_SLA <-emmeans (sla_model_2, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
 
 write.csv(lsmeans_SLA,file="LSmeans_SLA.csv")
+
+
+SLA <- as.data.frame(lsmeans_SLA)[c('Genotype', 'year', 'Water', 'Herbivore','response', 'SE')]
+
+
+test2 <- merge(test, SLA, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+              by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
 
 
 #*******************************************************************************
@@ -314,6 +301,15 @@ lsmeans_succulence <-emmeans (succ_model, ~Genotype*Water*Herbivore*year, type="
 
 write.csv(lsmeans_succulence,file="LSmeans_succulence.csv")
 
+succ <- as.data.frame(lsmeans_succulence)[c('Genotype', 'year', 'Water', 'Herbivore','response', 'SE')]
+
+
+test3 <- merge(test2, succ, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+               by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
+
+write.csv(test3,file="LSmeans_foliar2.csv")
+
+
 #*******************************************************************************
 #### Flowering phenology #######
 #*******************************************************************************
@@ -343,21 +339,6 @@ max_height<-glmmTMB(Max_height_flowering ~ Genotype+Water*Herbivore*year+(1|Cage
 lsmeans_height <-emmeans (max_height, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
 
 write.csv(lsmeans_height,file="LSmeans_height.csv")
-
-
-#*******************************************************************************
-#### probability of reproduction #######
-#*******************************************************************************
-
-##Exclude 2021 because we only have LAR data from that year and only 2 plants Reproduced
-grasshopper_no2021<-subset(grasshopper, year!="2021")
-
-prob_repro <-glmmTMB(Reproduced~Genotype+Water*Herbivore*year+
-                      (1|Cage_Block),data=grasshopper_no2021,family=binomial(link="logit"))
-
-lsmeans_prob_repro <-emmeans (prob_repro, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
-
-write.csv(lsmeans_prob_repro,file="LSmeans_PR.csv")
 
 
 #*******************************************************************************
