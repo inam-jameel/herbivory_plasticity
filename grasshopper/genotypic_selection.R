@@ -1,6 +1,6 @@
 ######## PROJECT: Common garden experiment: Examining clines and plasticity in response to water availability and grasshopper abundance
 #### PURPOSE: calculate genotypic means for genotypic selection analyses
-#### DATE LAST MODIFIED: 5 Sept 2024
+#### DATE LAST MODIFIED: 6 Oct 2024
 
 
 
@@ -36,7 +36,7 @@ setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experi
 ##setwd("~/Documents/personnel/Jameel/grasshopper")
 
 ##read in data 
-LSmeans <- read.csv("LS_means.csv",stringsAsFactors=T)
+LSmeans <- read.csv("LSmeans_foliar2.csv",stringsAsFactors=T)
 
 ##Change the baseline for Water availability
 LSmeans $Water <-factor(LSmeans $Water, levels = c("Restricted", "Supplemental"))
@@ -51,76 +51,110 @@ LSmeans $S_elev<-scale(LSmeans $elevation,center=TRUE, scale=TRUE)
 
 #### probability of reproduction
 
-## Many quantitative genetic models have convergence issues (or run very slowly) using raw data because traits and fitness components are measured on different scales. For example, phenology could be measured in days, whereas egg or seed mass is measured in mg. It is generally useful to standardize traits to a mean of 0 and standard deviation of 1. Below is code for standardizing flowering phenology (the resulting standardized variable is sFP, for standardized flowering phenology) and other phenotypic traits. For leaf damage, the standardized variable is called sLAR (which uses our field abbreviation of LAR for leaf area removed by herbivores)
 
 LSmeans $sLAR<-scale(LSmeans $LAR,center=TRUE,scale=TRUE)
 LSmeans $sSLA<-scale(LSmeans $SLA,center=TRUE,scale=TRUE)
 LSmeans $sSUC<-scale(LSmeans $succulence,center=TRUE,scale=TRUE)
 
-repro_model <-glmmTMB(prob_repro~Water*Herbivore+
-                        Water*Herbivore*sLAR+ 
-                        Water*Herbivore*sSUC+ #I(sSUC^2)+
-                        Water*Herbivore*sSLA+ #I(sSLA^2) 
-                      +(1|Genotype),data=LSmeans,family=gaussian(link="identity"))
+selection <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herbivore
+                    + sLAR*Water*Herbivore #+ I(sLAR^2)
+                    + sSLA*Water*Herbivore #+ I(sSLA^2)
+                    + sSUC*Water*Herbivore #+ I(sSUC^2)
+                    + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
 
-hist(LSmeans$prob_repro)
+simulationOutput <- simulateResiduals(fittedModel= selection, plot = T, re.form = NULL)
 
-simulationOutput <- simulateResiduals(fittedModel= repro_model, plot = T, re.form = NULL)
-
-Anova(repro_model,type="III") 
-
-#### fecundity
-
-##Create datafile with only reproductive plants
-LSmeansRepro <- filter(LSmeans, mature_length_siliques != 0 )
-
-##Rescale after removing the non-reproductive plants
-LSmeansRepro $sduration<-scale(LSmeansRepro $duration,center=TRUE,scale=TRUE)
-LSmeansRepro $s_max_height<-scale(LSmeansRepro $max_height,center=TRUE,scale=TRUE)
-LSmeansRepro $sLAR<-scale(LSmeansRepro $LAR,center=TRUE,scale=TRUE)
-LSmeansRepro $sSLA<-scale(LSmeansRepro $SLA,center=TRUE,scale=TRUE)
-LSmeansRepro $sSUC<-scale(LSmeansRepro $succulence,center=TRUE,scale=TRUE)
-LSmeansRepro $sFT<-scale(LSmeansRepro $phenology,center=TRUE,scale=TRUE)
-#LSmeansRepro $S_initdiam <-scale(LSmeansRepro $init.diam,center=TRUE,scale=TRUE)
+Anova(selection,type="III") 
 
 
-
-fecund_modeltraits <-glmmTMB(mature_length_siliques~ Water*Herbivore +
-                               Water*Herbivore*sFT+
-                               Water*Herbivore*s_max_height +
-                               Water*Herbivore* sduration +#Water*I(sduration^2) +Herbivore*I(sduration^2)+
-                               Water*Herbivore* sSLA+ #Water*Herbivore* I(sSLA^2)+
-                               Water*Herbivore* sSUC+ 
-                               Water*Herbivore* sLAR+#Water*Herbivore*I(sLAR^2)
-                             +(1|Genotype),data=LSmeansRepro)#,family=gaussian(link="identity"))
-
-hist(LSmeansRepro$mature_length_siliques)
+#Succulence 
+emtrends(selection, specs = c("sSUC"), var = "sSUC") # succulence is not significant?
 
 
-Anova(fecund_modeltraits,type="III") 
+#LAR 
+emtrends(selection, specs = c("Water"), var = "sLAR") # LAR * water is not significant?
 
-##To check residuals
-simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T, re.form = NULL,allow.new.levels =TRUE)
+##selection on leaf succulence
 
+suc_repro = visreg(selection,"sSUC", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+suc_repro_plot<-ggplot(suc_repro $fit, aes(sSUC, visregFit)) +
+  geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
+  geom_line() +theme_bw()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_jitter(data= LSmeans, aes(sSUC, survived/overwintered),width=0,height=0.025,size=2, alpha=0.75, color="black")+scale_x_continuous("Leaf succulence (mg/cm2)")+ scale_y_continuous("Probability of survival")
+suc_repro_plot
 
-### Univariate models####
-
-
-###Flowering time###
-
-
-fecund_modeltraits_FT <-glmmTMB(mature_length_siliques~ Water*Herbivore +
-                                  Water*Herbivore*sFT
-                               +I(sFT^2)+
-                                +(1|Genotype),data=LSmeansRepro,family=gaussian(link="identity"))
-
-Anova(fecund_modeltraits_FT,type="III") 
-
-simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits_FT, plot = T, re.form = NULL,allow.new.levels =TRUE)
+coefficients_SUC <- emtrends(selection, specs = c("sSUC"), var = "sSUC",type="response")
+SUC_table<- as.data.frame(summary(coefficients_SUC))[c('sSUC.trend', 'SE')]
+SUC_table <- SUC_table%>% mutate(
+  slopes = exp(sSUC.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
 
 
 
-##### calculating LS means #######
+##selection on Leaf area removed
+
+coefficients_LAR <- emtrends(selection, specs = c("Water"), var = "sLAR",type="response")
+LAR_table<- as.data.frame(summary(coefficients_LAR))[c('sLAR.trend', 'Water', 'SE')]
+LAR_table <- LAR_table%>% mutate(
+  slopes = exp(sLAR.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+
+LAR_repro<-visregList(visreg(selection,"sLAR", by="Water",cond=list("Herbivore"="Addition"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response"),
+                visreg(selection,"sSUC", by="Water",cond=list("Herbivore"="Removal"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response"), collapse=TRUE)
+
+
+LAR_repro<-visreg(selection,"sLAR", by="Water", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+                      
+LAR_repro_plot<-ggplot(LAR_repro $fit, aes(sLAR, visregFit,group= Water, colour= Water, fill=factor(Water))) +
+  geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
+  geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= LSmeans, aes(sLAR, survived/overwintered, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Leaf area removed (percent)")+ scale_y_continuous("Probability of survival",limits=c(0,1))+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))#+facet_wrap(~Herbivore)
+
+
+LAR_repro = visreg(selection,"sLAR", by = "Water", overlay = TRUE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+
+LAR_repro_plot<-ggplot(LAR_repro $fit, aes(sLAR, visregFit)) +
+  geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
+  geom_line() +theme_bw()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_jitter(data= LSmeans, aes(sLAR, survived/overwintered),width=0,height=0.025,size=2, alpha=0.75, color="black")+scale_x_continuous("Leaf area removed")+ scale_y_continuous("Probability of survival")
+LAR_repro_plot
+## univariate models
+
+
+repro_model_SLA <-glmmTMB(cbind(survived , overwintered -survived )~ year+Water*Herbivore +
+                                      sLAR*Water*Herbivore + #Water*Herbivore* I(sLAR^2)
+                                   +(1|Genotype), data= LSmeans, family=binomial(link="logit"))
+Anova(repro_model_SLA,type="III") 
+
+#sla_pred_uni <- ggpredict(repro_model_SLA, terms = c("sSLA[all]"), type = "re", interval="confidence")
+#SLA_reproduction_uni <- plot(sla_pred_uni, show_data=TRUE, show_title =FALSE, show_legend=FALSE,  facet=FALSE,dot_alpha=0.75)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Specific leaf area")+ scale_y_continuous("Probability of reproduction")
+#SLA_reproduction_uni
+
+repro_model_SUC <-glmmTMB(cbind(survived , overwintered -survived )~Water*Herbivore+year+
+                            Water*Herbivore*sSUC+  I(sSUC^2)+
+                            (1|Genotype),data=LSmeans,family=binomial(link="logit")) 
+
+#repro_model_SUC <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
+#                             Water*Herbivore*sSUC+I(sSUC^2)+ 
+#                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
+Anova(repro_model_SUC,type="III") 
+#sSUC_pred_uni <- ggpredict(repro_model_SUC, terms = c("sSUC[all]","Herbivore"), type = "re", interval="confidence")
+
+#Succulence_reproduction_herbivore_uni <-plot(sSUC_pred_uni, show_data=TRUE, show_title =FALSE, show_legend=TRUE, colors = cols2,facet=FALSE)+theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="right")+scale_x_continuous("Leaf succulence")+ scale_y_continuous("Probability of reproduction")
+#Succulence_reproduction_herbivore_uni
+
+
+repro_model_LAR <-glmmTMB(cbind(survived , overwintered -survived )~Water*Herbivore+year+
+                             Water*Herbivore+sLAR+ I(sLAR ^2)+
+                            (1|Genotype),data=LSmeans,family=binomial(link="logit"))                            
+
+#Anova(repro_model_LAR,type="III") 
+
+
+
+#*******************************************************************************
+#### Calculating LSmeans #######
+#*******************************************************************************
 
 
 ##read in data 
@@ -196,20 +230,18 @@ cols=c("#CC79A7","lightblue") #for water treatment
 cols2=c("#882255","#77DDAA") #for the grasshopper treatment
 
 
-# aggregate sum of marks with subjects 
+# aggregate number over wintered, survived, and reproduced
 
 ##Exclude 2021 because we only have LAR data from that year and only 2 plants Reproduced
 grasshopper_no2021<-subset(grasshopper, year!="2021")
 
-planted <- aggregate(grasshopper$Overwinter_survival_2022, list(Genotype = grasshopper$Genotype, year = grasshopper$year,  Water = grasshopper$Water,  Herbivore = grasshopper$Herbivore), FUN=sum)
-
-planted <- aggregate(grasshopper_no2021$Overwinter_survival_2022, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum)
+overwintered <- aggregate(grasshopper_no2021$Overwinter_survival_2022, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum)
 
 survived <- aggregate(grasshopper_no2021$Season_survival, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum)
 
 reproduced <- aggregate(grasshopper_no2021$Reproduced, list(Genotype = grasshopper_no2021$Genotype, year = grasshopper_no2021$year,  Water = grasshopper_no2021$Water,  Herbivore = grasshopper_no2021$Herbivore), FUN=sum) 
 
-plant_surv <- merge(planted, survived, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
+overwintered_surv <- merge(overwintered, survived, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
       by.y=c('Genotype', 'year', 'Water', 'Herbivore')) 
 
 ps_repro <- merge(plant_surv, reproduced, by.x=c('Genotype', 'year', 'Water', 'Herbivore'), 
@@ -310,50 +342,7 @@ test3 <- merge(test2, succ, by.x=c('Genotype', 'year', 'Water', 'Herbivore'),
 write.csv(test3,file="LSmeans_foliar2.csv")
 
 
-#*******************************************************************************
-#### Flowering phenology #######
-#*******************************************************************************
 
-FT_model<-glmmTMB(FT_Adj ~ Genotype*Water*Herbivore*year+(1|Cage_Block),data= flowering)#,family=lognormal(link="log"))
-
-lsmeans_FT <-emmeans (FT_model, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
-
-write.csv(lsmeans_FT,file="LSmeans_phenology.csv")
-
-#*******************************************************************************
-#### Flowering duration #######
-#*******************************************************************************
-
-flowering_duration<-glmmTMB(flowering_duration ~ Genotype*Water*Herbivore*year+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
-
-lsmeans_duration <-emmeans (flowering_duration, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
-
-write.csv(lsmeans_duration,file="LSmeans_duration.csv")
-
-#*******************************************************************************
-#### Height at flowering #######
-#*******************************************************************************
-
-max_height<-glmmTMB(Max_height_flowering ~ Genotype+Water*Herbivore*year+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
-
-lsmeans_height <-emmeans (max_height, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
-
-write.csv(lsmeans_height,file="LSmeans_height.csv")
-
-
-#*******************************************************************************
-#### fecundity #######
-#*******************************************************************************
-
-##Create datafile with only reproductive plants
-traitdatRepro <- filter(grasshopper_no2021, Reproduced == 1 )
-
-fecundity <-glmmTMB(Mature_length_siliques~Genotype*Water*Herbivore*year+
-                       (1|Cage_Block),data=traitdatRepro,family=Gamma(link="log"))
-
-lsmeans_fecundity <-emmeans (fecundity, ~Genotype*Water*Herbivore*year, type="response",adjust = "sidak")
-
-write.csv(lsmeans_fecundity,file="LSmeans_fecundity.csv")
 
 
 

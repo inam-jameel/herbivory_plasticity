@@ -474,7 +474,7 @@ Succ_table <- Succ_table%>% mutate(
   ## cline for succulence
 succ_cline<-visreg(succ_model,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 
-Succ_clinal_variation<-ggplot(succ_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= foliar, aes(S_elev, succulence), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (mg)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
+Succ_clinal_variation<-ggplot(succ_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= succulence_data, aes(S_elev, y_beta), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (mg)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
 
 
 
@@ -882,9 +882,8 @@ simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T,
 #                               Water*Herbivore* sLAR+Water*Herbivore* sLAR2 +(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 #Anova(fecund_modeltraits_quad,type="III")
 
-#emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"), var = "sFT")
-#FT
-#coefficients_FT <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sFT",type="response")
+## flowering phenology
+#coefficients_FT <- emtrends(fecund_modeltraits_quad, specs = c("sFT"),var = "sFT",type="response")
 #FT_table<- as.data.frame(summary(coefficients_FT))[c('sFT.trend', 'SE')]
 #FT_table <- FT_table%>% mutate(
 #  slopes = exp(sFT.trend),
