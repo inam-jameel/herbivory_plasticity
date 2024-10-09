@@ -56,6 +56,79 @@ LSmeans $sLAR<-scale(LSmeans $LAR,center=TRUE,scale=TRUE)
 LSmeans $sSLA<-scale(LSmeans $SLA,center=TRUE,scale=TRUE)
 LSmeans $sSUC<-scale(LSmeans $succulence,center=TRUE,scale=TRUE)
 
+selection2 <-glmmTMB(cbind(reproduced , overwintered -reproduced )~ year + Water*Herbivore
+                    + sLAR*Water*Herbivore #+ I(sLAR^2)
+                    + sSLA*Water*Herbivore #+ I(sSLA^2)
+                    + sSUC*Water*Herbivore + I(sSUC^2)
+                    + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
+
+simulationOutput <- simulateResiduals(fittedModel= selection2, plot = T, re.form = NULL)
+
+Anova(selection2,type="III") 
+
+##selection on leaf succulence
+
+suc_repro = visreg(selection2,"sSUC", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+suc_repro_plot<-ggplot(suc_repro $fit, aes(sSUC, visregFit)) +
+  geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
+  geom_line() +theme_bw()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_jitter(data= LSmeans, aes(sSUC, survived/overwintered),width=0,height=0.025,size=2, alpha=0.75, color="black")+scale_x_continuous("Leaf succulence (mg/cm2)")+ scale_y_continuous("Probability of reproduction")
+suc_repro_plot
+
+coefficients_SUC <- emtrends(selection, specs = c("sSUC"), var = "sSUC",type="response")
+SUC_table<- as.data.frame(summary(coefficients_SUC))[c('sSUC.trend', 'SE')]
+SUC_table <- SUC_table%>% mutate(
+  slopes = exp(sSUC.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+
+##To extract coefficients, we need to create the quadratic effects outside of the model
+LSmeans$sSLA2<-LSmeans$sSLA*LSmeans$sSLA
+LSmeans$sLAR2<-LSmeans$sLAR*LSmeans$sLAR
+LSmeans$sSUC2<-LSmeans$sSUC*LSmeans$sSUC
+
+
+repro_model_quad <-glmmTMB(cbind(reproduced , overwintered -reproduced )~Water*Herbivore+year+
+                             Water*Herbivore*sLAR+ 
+                             Water*Herbivore*sSUC+ sSUC2 +
+                             Water*Herbivore*sSLA#+ sSLA2 
+                           +(1|Genotype),data=LSmeans,family=binomial(link="logit"))
+Anova(repro_model_quad,type="III") 
+
+##Slope of selection surfaces 
+
+emtrends(repro_model_quad, specs = c("sSLA"), var = "sSLA")
+
+
+emtrends(repro_model_quad, specs = c("sSUC"), var = "sSUC")
+
+
+emtrends(repro_model_quad, specs = c("sSLA"), var = "sSLA")
+
+coefficients_succ <- emtrends(repro_model_quad, specs = c("Water","Herbivore"), var = "sSUC",type="response")
+Succ_table<- as.data.frame(summary(coefficients_succ))[c('sSUC.trend', 'SE')]
+Succ_table <- Succ_table%>% mutate(
+  slopes = exp(sSUC.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+coefficients_succ <- emtrends(repro_model_quad, specs = c("sSUC2"), var = "sSUC2",type="response")
+Succ_table<- as.data.frame(summary(coefficients_succ))[c('sSUC2.trend', 'SE')]
+Succ_table <- Succ_table%>% mutate(
+  slopes = exp(sSUC2.trend),
+  Lower95 = slopes * exp(-1.96*SE),
+  Upper95 = slopes * exp(1.96*SE))
+
+
+
+#### probability of survival
+
+
+LSmeans $sLAR<-scale(LSmeans $LAR,center=TRUE,scale=TRUE)
+LSmeans $sSLA<-scale(LSmeans $SLA,center=TRUE,scale=TRUE)
+LSmeans $sSUC<-scale(LSmeans $succulence,center=TRUE,scale=TRUE)
+
+
 selection <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herbivore
                     + sLAR*Water*Herbivore #+ I(sLAR^2)
                     + sSLA*Water*Herbivore #+ I(sSLA^2)
@@ -64,7 +137,7 @@ selection <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herb
 
 simulationOutput <- simulateResiduals(fittedModel= selection, plot = T, re.form = NULL)
 
-Anova(selection,type="III") 
+Anova(surv_model,type="III") 
 
 
 #Succulence 
