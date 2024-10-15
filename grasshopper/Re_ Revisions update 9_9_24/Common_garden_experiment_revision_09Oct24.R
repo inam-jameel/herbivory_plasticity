@@ -1,6 +1,6 @@
 ######## PROJECT: Common garden experiment: Examining clines and plasticity in response to water availability and grasshopper abundance
 #### PURPOSE:Examine clines, trait values and fitness in response to water availability and grasshopper abundance in the field.
-#### DATE LAST MODIFIED: 4 Oct 2024
+#### DATE LAST MODIFIED: 9 Oct 2024
 
   ## remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -402,13 +402,11 @@ SLA_treatment
 #### Succulence #####
 #*******************************************************************************
 
-foliar$succulence_mg<-foliar$succulence*1000 #transform succulence values for model convergence
+#foliar$succulence_mg<-foliar$succulence*1000 #transform succulence values for model convergence
 
-succulence_data <- dplyr::select(foliar, succulence, elevation, Genotype, Cage, Water, Herbivore, PlantID, init.diam, Cage_Block, elev_km, S_elev,  year, succulence_mg, elev_dist_km) #create separate data frame with relevant data columns
+succulence_data <- dplyr::select(foliar, succulence, elevation, Genotype, Cage, Water, Herbivore, PlantID, init.diam, Cage_Block, elev_km, S_elev,  year, elev_dist_km) #create separate data frame with relevant data columns
 
 succulence_data <- drop_na(succulence_data,succulence) #remove missing data
-
-hist(succulence_data$succulence_mg)
 
 #beta transformation
 n<-nrow(succulence_data)
@@ -443,9 +441,9 @@ cld(succulence, details=TRUE)
 #                      , data = succulence_data, 
 #                      family=beta_family())
 
-#anova(succ_model,succ_model_no_plantID)
-#anova(succ_model,succ_model_no_genotype)
-#anova(succ_model,succ_model_no_cb)
+#anova(succ_model_full,succ_model_no_plantID)
+#anova(succ_model_full,succ_model_no_genotype)
+#anova(succ_model_full,succ_model_no_cb)
 
 ## cline for succulence, no significance
 succ_cline<-visregList(visreg(succ_model,"S_elev", by="Water",cond=list("Herbivore"="Addition"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response"),
@@ -534,6 +532,7 @@ FT_treatment
 
 
 flowering_duration<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
 Anova(flowering_duration, type = "III") 
 
   ##Use the DHARMa package to examine the residuals, which are reasonable
