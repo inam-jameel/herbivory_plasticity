@@ -1,6 +1,6 @@
 ######## PROJECT: Common garden experiment: Examining clines and plasticity in response to water availability and grasshopper abundance
 #### PURPOSE:Examine clines, trait values and fitness in response to water availability and grasshopper abundance in the field.
-#### DATE LAST MODIFIED: 23 Oct 2024
+#### DATE LAST MODIFIED: 29 Oct 2024
 
 ## remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -217,57 +217,34 @@ LAR_data_long_form <- drop_na(LAR_data_long_form,LAR_prop)
 
 ##this is the beta transformation, which transforms all values of 0 to a small value.
 
-n<-nrow(LAR_data_long_form)
+#n<-nrow(LAR_data_long_form)
 
-LAR_data_long_form $y_beta<- (LAR_data_long_form $LAR_prop*(n-1) + 0.5)/n
+#LAR_data_long_form $y_beta<- (LAR_data_long_form $LAR_prop*(n-1) + 0.5)/n
 
-hist(LAR_data_long_form $y_beta) #check transformation
-min(LAR_data_long_form $y_beta)
-max(LAR_data_long_form $y_beta)
+#hist(LAR_data_long_form $y_beta) #check transformation
+#min(LAR_data_long_form $y_beta)
+#max(LAR_data_long_form $y_beta)
+
+
+
+
 
 ## model analyzing herbivore resistance across source elevation (cline), treatment levels (plasticity), and year.Need to run to generate Figure 2A, damage_clinal_variation
 ## Takes a moment to run
-LAR_Model<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year+ random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
 
-#plot(LAR_Model) #check residuals
-#summary(LAR_Model) 
-#drop1(LAR_Model) #this only checks if four way interaction is significant, it is not. We will need to run modes with reduced interactions and check thier significance
+LAR_Model <- glmmTMB(LAR_prop ~Water*Herbivore*year+S_elev*Herbivore*year+S_elev*Water*year+S_elev*Water*Herbivore + (1| census_year)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), zi=~1, data=LAR_data_long_form, family=beta_family(link="logit"))
+
+Anova(LAR_Model)
+
+## Use the DHARMa package to examine the residuals, which are reasonable
+simulationOutput <- simulateResiduals(fittedModel= LAR_Model, plot = T, re.form = NULL,allow.new.levels =T)
+
+
+## pairwise comparistions of the water availability treatment
+LAR <-emmeans(LAR_Model, ~ Water*Herbivore, type="response", adjust = "sidak")
+cld(LAR, details=TRUE)
+
 #save(LAR_Model, file='LAR_Model.rda') 
-
-## three way interactions
-#LAR_Model_three<- gamlss (formula= y_beta ~S_elev*Water*Herbivore
-#                          +S_elev*Water*year
-#                          +S_elev* Herbivore*year
-#                          + Water* Herbivore*year
-#                          + year
-#                          + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
-#drop1(LAR_Model_three)
-#save(LAR_Model_three, file='LAR_Model_three.rda')   
-
-## Two way interactions
-#LAR_Model_two<- gamlss (formula= y_beta ~S_elev*Water
-#                        + S_elev*Herbivore
-#                        + Water* Herbivore
-#                        + year*Water
-#                        + year*Herbivore
-#                        + S_elev*year
-#                        + year
-#                        + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
-#drop1(LAR_Model_two)
-#save(LAR_Model_two, file='LAR_Model_two.rda')  
-
-## Single term
-#LAR_Model_one<- gamlss (formula= y_beta ~S_elev+Water+Herbivore+ year+ random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
-#drop1(LAR_Model_one)
-#save(LAR_Model_one, file='LAR_Model_one.rda')
-
-## env concatenates water and herbivore. This model allows us to extract means and slopes for each combination of treatment and elevation
-#LAR_data_long_form $env<-interaction(LAR_data_long_form $Water, LAR_data_long_form $Herbivore)
-#LAR_data_long_form $env_year<-interaction(LAR_data_long_form $env, LAR_data_long_form $year)
-
-#LAR_ModelE_four<- gamlss (formula= y_beta ~S_elev* env_year-1 +random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data#=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
-#summary(LAR_ModelE_four)
-
 
 ##Set tick marks on the X axis for these elevations: 2600, 3100, 3600. these breaks are in the code to generate damage_cline_variation
 #(2600-mean(LAR_data_long_form $elevation, na.rm = TRUE))/sd( LAR_data_long_form $elevation,na.rm = TRUE)
@@ -295,24 +272,15 @@ damage_clinal_variation<-ggplot(damfit, aes(S_elev, visregFITexp,group= Water, c
 
 damage_clinal_variation #Fig 2A
 
-## two ways to visualize plasticity
 
-## Box_plot
-LAR_box <-ggplot(LAR_data_long_form, aes(x = Herbivore, y = LAR_prop, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Grasshopper treatment")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +geom_point(aes(shape=factor(Water)), size = 1,position = position_jitterdodge(0.3))
+##Box_plot,  significant effect of water
+LAR_box <-ggplot(LAR_data_long_form, aes(x = Water, y = LAR_prop, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ scale_y_continuous("Leaf area removed by herbivores (proportion)") +geom_point(aes(shape=factor(Water)), size = 2,position = position_jitterdodge(0.3))
 
-LAR_box <-LAR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
-                                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("grasshopper addition", "grasshopper removal")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+facet_grid(~year)
-LAR_box
+LAR_treatment <-LAR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                                axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                                panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Restricted", "Supplemental")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+facet_wrap(~Herbivore)
+LAR_treatment #Fig 2B
 
-
-## grid format
-LAR_box <-ggplot(LAR_data_long_form, aes(x = Water, y = LAR_prop, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Grasshopper treatment")+ scale_y_continuous(element_blank()) +geom_point(aes(shape=factor(Water)), size = 1.5,position = position_jitterdodge(0.3))
-
-LAR_box <-LAR_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
-                                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("grasshopper addition", "grasshopper removal")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+facet_grid(Herbivore~year)
-LAR_box
 
 #*******************************************************************************
 #### Specific Leaf Area #####
@@ -743,7 +711,7 @@ suc_repro_plot #figure 3G
 #LAR_uni
 
 #*******************************************************************************
-####  Selection via Seed production using all traits #####
+####  Selection via Seed set using all traits #####
 #*******************************************************************************
 
 ##Create datafile with only reproductive plants
@@ -1208,7 +1176,7 @@ Local_adaptation
 ## Figure 2
 
 figure2 <- ggarrange(damage_clinal_variation, 
-                     LAR_box,LAR_fecund_plot,
+                     LAR_treatment,LAR_fecund_plot,
                      labels = c("A", "B","C"),
                      ncol = 3, nrow = 1, common.legend = TRUE, legend="none")
 figure2
