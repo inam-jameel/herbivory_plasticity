@@ -56,15 +56,44 @@ LSmeans $sLAR<-scale(LSmeans $LAR,center=TRUE,scale=TRUE)
 LSmeans $sSLA<-scale(LSmeans $SLA,center=TRUE,scale=TRUE)
 LSmeans $sSUC<-scale(LSmeans $succulence,center=TRUE,scale=TRUE)
 
-selection2 <-glmmTMB(cbind(reproduced , overwintered -reproduced )~ year + Water*Herbivore
+selection_repro <-glmmTMB(cbind(reproduced , overwintered -reproduced )~ year * Water*Herbivore
                     + sLAR*Water*Herbivore #+ I(sLAR^2)
                     + sSLA*Water*Herbivore #+ I(sSLA^2)
                     + sSUC*Water*Herbivore + I(sSUC^2)
                     + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
 
-simulationOutput <- simulateResiduals(fittedModel= selection2, plot = T, re.form = NULL)
+simulationOutput <- simulateResiduals(fittedModel= selection_repro, plot = T, re.form = NULL)
 
-Anova(selection2,type="III") 
+Anova(selection_repro,type="III") 
+
+#gives warning, but is ok -> https://stackoverflow.com/questions/78168813/what-does-warning-in-glmmtmb-mean-failed-to-invert-hessian-from-numderiv
+
+
+selection_repro2 <-glmmTMB(cbind(reproduced , overwintered -reproduced )~ year +Water*Herbivore
+                     + sLAR*Water*Herbivore #+ I(sLAR^2)
+                     + sSLA*Water*Herbivore #+ I(sSLA^2)
+                     + sSUC*Water*Herbivore + I(sSUC^2)
+                     + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
+
+simulationOutput <- simulateResiduals(fittedModel= selection_repro2, plot = T, re.form = NULL)
+
+Anova(selection_repro2,type="III")
+
+anova(selection_repro1,selection_repro2) #selection_repro2 is better model
+
+#checking random effect
+
+prob_repro_nogeno <-glmmTMB(cbind(reproduced , overwintered -reproduced )~ year + Water*Herbivore
+                           + sLAR*Water*Herbivore #+ I(sLAR^2)
+                           + sSLA*Water*Herbivore #+ I(sSLA^2)
+                           + sSUC*Water*Herbivore + I(sSUC^2)
+                           #+ (1|Genotype)
+                           , data= LSmeans, family=binomial(link="logit"))
+
+anova(selection_repro2,prob_repro_nogeno)
+
+
+
 
 ##selection on leaf succulence
 
@@ -129,15 +158,39 @@ LSmeans $sSLA<-scale(LSmeans $SLA,center=TRUE,scale=TRUE)
 LSmeans $sSUC<-scale(LSmeans $succulence,center=TRUE,scale=TRUE)
 
 
-selection <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herbivore
+prob_surv <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herbivore
                     + sLAR*Water*Herbivore #+ I(sLAR^2)
                     + sSLA*Water*Herbivore #+ I(sSLA^2)
                     + sSUC*Water*Herbivore #+ I(sSUC^2)
                     + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
 
-simulationOutput <- simulateResiduals(fittedModel= selection, plot = T, re.form = NULL)
+simulationOutput <- simulateResiduals(fittedModel= prob_surv, plot = T, re.form = NULL)
 
-Anova(surv_model,type="III") 
+Anova(prob_surv,type="III") 
+
+
+prob_surv2 <-glmmTMB(cbind(survived , overwintered -survived )~ year * Water*Herbivore
+                    + sLAR*Water*Herbivore #+ I(sLAR^2)
+                    + sSLA*Water*Herbivore #+ I(sSLA^2)
+                    + sSUC*Water*Herbivore + I(sSUC^2)
+                    + (1|Genotype), data= LSmeans, family=binomial(link="logit"))
+
+simulationOutput <- simulateResiduals(fittedModel= prob_surv2, plot = T, re.form = NULL)
+
+Anova(prob_surv2,type="III") 
+
+anova(prob_surv,prob_surv2) #no real difference, but going with prob_surv since there wasnt a warning message, model is consistant with prob repro and the chisq values are not wacky
+
+#checking random effect
+
+prob_surv_nogeno <-glmmTMB(cbind(survived , overwintered -survived )~ year + Water*Herbivore
+                    + sLAR*Water*Herbivore #+ I(sLAR^2)
+                    + sSLA*Water*Herbivore #+ I(sSLA^2)
+                    + sSUC*Water*Herbivore #+ I(sSUC^2)
+                    #+ (1|Genotype)
+                    , data= LSmeans, family=binomial(link="logit"))
+
+anova(prob_surv,prob_surv_nogeno)
 
 
 #Succulence 
@@ -226,7 +279,7 @@ repro_model_LAR <-glmmTMB(cbind(survived , overwintered -survived )~Water*Herbiv
 
 
 #*******************************************************************************
-#### Calculating LSmeans #######
+#### Calculating emmeans #######
 #*******************************************************************************
 
 

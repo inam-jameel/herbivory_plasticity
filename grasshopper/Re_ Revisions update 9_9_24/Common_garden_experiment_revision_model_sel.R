@@ -1,7 +1,6 @@
 ######## PROJECT: Common garden experiment: Examining clines and plasticity in response to water availability and grasshopper abundance
-#### PURPOSE:Examine clines, trait values and fitness in response to water availability and grasshopper abundance in the field.
-#### DATE LAST MODIFIED: 4 Oct 2024
-
+#### PURPOSE:model selection analyses
+#### DATE LAST MODIFIED: 29 Oct 2024
 
   ## remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -26,19 +25,20 @@ library(DHARMa) #for assessing model fits
 library(ggeffects) #for plotting
 library(ggpubr) #for arranging panels into figures
 library(lme4) # for running models
-
+library(MuMIn) #For model selection
 
 
   ##this is where you specify the folder where you have the data on your computer
 
-setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper/Grasshopper_manuscript_files/Grasshopper_manuscript_Submission/scripts_data/")
+##setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper/Grasshopper_manuscript_files/Grasshopper_manuscript_Submission/scripts_data/")
 
-  ##setwd("~/Documents/personnel/Jameel/grasshopper")
+  setwd("~/Documents/personnel/Jameel/grasshopper")
 
 
   ##read in data 
-grasshopper <- read.csv("Common_garden_experiment_data.csv",stringsAsFactors=T)
-
+  grasshopper <- read.csv("Grasshopper_fulldata_long_updated_1May24.csv",stringsAsFactors=T)
+  
+  
 sapply(grasshopper,class)
   ##Some  variables are being read as characters not factors. Let's fix that
 grasshopper$Block<-as.factor(grasshopper$Block)
@@ -57,7 +57,6 @@ grasshopper $S_elev<-scale(grasshopper $elevation,center=TRUE, scale=TRUE)
 
   ##This standardizes initial plant size (measured as diameter in mm)  to a mean of 0 and standard deviation of 1 for use as a covariate in fitness models
 grasshopper $S_initdiam<-scale(grasshopper $init.diam,center=TRUE, scale=TRUE)
-
 
   ##This rescales source elevation from meters to km
 grasshopper$elev_km<-grasshopper $elevation/1000
@@ -232,8 +231,75 @@ max(LAR_data_long_form $y_beta)
 #1*sd(grasshopper $elevation,na.rm=TRUE)+mean(grasshopper $elevation,na.rm=TRUE)
 
 
+
+damage_model <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year + (1| census_year)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data_long_form, family=beta_family())
+
+Anova(damage_model, type = "III")
+
+
+simulationOutput <- simulateResiduals(fittedModel= damage_model, plot = T, re.form = NULL,allow.new.levels =T)
+
+
+damage_model_no_plantID <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year 
+                                   + (1| census_year)
+                                   #+ (1| PlantID)
+                                   + (1| Cage_Block)
+                                   + (1| Genotype)
+                                   , data=LAR_data_long_form, family=beta_family())
+
+
+damage_model_no_genotype <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year 
+                                    + (1| census_year)
+                                    + (1| PlantID)
+                                    + (1| Cage_Block)
+                                    #+ (1| Genotype)
+                                    , data=LAR_data_long_form, family=beta_family())
+
+damage_model_no_cb <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year 
+                              + (1| census_year)
+                              + (1| PlantID)
+                             # + (1| Cage_Block)
+                              + (1| Genotype)
+                              , data=LAR_data_long_form, family=beta_family())
+
+damage_model_no_census <- glmmTMB(y_beta ~S_elev*Water*Herbivore*year 
+                              #+ (1| census_year)
+                              + (1| PlantID)
+                              + (1| Cage_Block)
+                              + (1| Genotype)
+                              , data=LAR_data_long_form, family=beta_family())
+
+
+anova(damage_model,damage_model_no_plantID)
+anova(damage_model,damage_model_no_genotype)
+anova(damage_model,damage_model_no_cb)
+anova(damage_model,damage_model_no_census)
+
+damage_model_three_a <- glmmTMB(y_beta ~S_elev*Water*Herbivore+year + (1| census_year)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data_long_form, family=beta_family())
+
+Anova(damage_model_three_a, type = "III")
+
+damage_model_three_b <- glmmTMB(y_beta ~S_elev+Water*Herbivore*year + (1| census_year)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data_long_form, family=beta_family())
+
+Anova(damage_model_three_b, type = "III")
+
+
+damage_model_two <- glmmTMB(y_beta ~S_elev+Water*Herbivore+year + (1| census_year)+ (1| PlantID)+ (1| Cage_Block)+ (1| Genotype), data=LAR_data_long_form, family=beta_family())
+
+Anova(damage_model_two, type = "III")
+
+
+model.sel(damage_model,damage_model_three_a,damage_model_three_b,damage_model_two)
+
+
+
 #fourway_model
-LAR_Model_four<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year+ random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
+LAR_Model_four<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year
+                         + random(census_year) 
+                         + random(PlantID)
+                         #+ random(Cage_Block)
+                         +random(Genotype)
+                         ,family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
 plot(LAR_Model_four)
 summary(LAR_Model_four)
 drop1(LAR_Model_four)
@@ -242,12 +308,50 @@ save(LAR_Model_four, file='LAR_Model.rda')
 
 
 ##Threeway_model
-#LAR_Model_three<- gamlss (formula= y_beta ~S_elev*Water*Herbivore+year+ random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
+LAR_Model_three<- gamlss (formula= y_beta ~S_elev*Water*Herbivore+year+ random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
 
-#plot(LAR_Model_three)
-#summary(LAR_Model_three)
-#drop1(LAR_Model_three)
-#save(LAR_Model, file='LAR_Model.rda')   
+plot(LAR_Model_three)
+summary(LAR_Model_three)
+drop1(LAR_Model_three)
+#save(LAR_Model_three, file='LAR_Model_three.rda')  
+load(LAR_Model_three)
+
+##Alternative three=way_model
+LAR_Model_threeB<- gamlss (formula= y_beta ~year*Water*Herbivore+ S_elev + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
+
+plot(LAR_Model_threeB)
+summary(LAR_Model_threeB)
+drop1(LAR_Model_threeB)
+#save(LAR_Model_threeB, file='LAR_Model_threeB.rda')  
+
+
+LAR_Model_twob<- gamlss (formula= y_beta ~S_elev*Water
+                        + Water* Herbivore
+                        + year*Water
+                        + year*Herbivore
+                        + S_elev
+                        + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
+drop1(LAR_Model_twob)
+
+
+
+
+
+##Two-way model
+LAR_Model_two<- gamlss (formula= y_beta ~year+Water*Herbivore+ S_elev + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
+
+plot(LAR_Model_two)
+summary(LAR_Model_two)
+drop1(LAR_Model_two)
+#save(LAR_Model_two, file='LAR_Model_two.rda')  
+
+
+
+
+##Compare the three- and four-way models. The four-way model has a lower AICc value and is therefore preferred.
+AICc(LAR_Model_threeB) #-26355.79
+AICc(LAR_Model_three) #-26355.79
+AICc(LAR_Model_four) #-26515.16
 
 
 	##Set tick marks on the X axis for these elevations: 2600, 3100, 3600
@@ -265,7 +369,6 @@ damage_cline<-visregList(
     visreg(LAR_Model_four,"S_elev", by="Water",cond=list("Herbivore"="Removal",year="2023"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),collapse=TRUE)
 
 #damage_cline<-visregList(visreg(LAR_Model_four,"S_elev", by="Water",cond=list("Herbivore"="Addition"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE), visreg(LAR_Model_four,"S_elev", by="Water",cond=list("Herbivore"="Removal"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),collapse=TRUE)
-
 
 damfit<-data.frame(damage_cline$fit)
 damfit$visregFITexp<-exp(damfit$visregFit)
@@ -315,7 +418,6 @@ LAR_Model_three<- gamlss (formula= y_beta ~S_elev*Water*Herbivore
                           +S_elev*Water*year
                           +S_elev* Herbivore*year
                           + Water* Herbivore*year
-                          + year
                           + random(census_year) + random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data=LAR_data_long_form,control = gamlss.control(n.cyc = 500))
 drop1(LAR_Model_three)
 #save(LAR_Model_three, file='LAR_Model_three.rda')   
@@ -337,28 +439,105 @@ LAR_Model_one<- gamlss (formula= y_beta ~S_elev+Water+Herbivore+ year+ random(ce
 drop1(LAR_Model_one)
 #save(LAR_Model_one, file='LAR_Model_one.rda')
 
+##glmmTMB models
+LAR_glmmTMB_full <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year +(1|census_year)+(1|PlantID) +(1|Genotype) +(1|Cage_Block), data = LAR_data_long_form, family=beta_family())
+Anova(LAR_glmmTMB_full)
+
+LAR_glmmTMB_red <- glmmTMB(y_beta ~ Water*Herbivore*S_elev+year +(1|census_year)+(1|PlantID) +(1|Genotype) +(1|Cage_Block), data = LAR_data_long_form, family=beta_family())
+Anova(LAR_glmmTMB_red)
+
+LAR_glmmTMB_red2 <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year +(1|census_year)+(1|PlantID) +(1|Genotype) +(1|Cage_Block), data = LAR_data_long_form, family=beta_family())
+Anova(LAR_glmmTMB_red2)
+
+##Top model by far is LAR_glmmTMB_full
+model.sel(LAR_glmmTMB_full, LAR_glmmTMB_red, LAR_glmmTMB_red2)
+emtrends(LAR_glmmTMB_full, specs = c("Herbivore","year"), var = "S_elev")
+simulationOutput <- simulateResiduals(fittedModel= LAR_glmmTMB_full, plot = T, re.form = NULL,allow.new.levels =T)
 
 
+damage_cline<-visregList(
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Addition",year="2021"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE), 
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Removal",year="2021"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE), 
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Addition",year="2022"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Removal",year="2022"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Addition",year="2023"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE), 
+    visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Removal",year="2023"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),collapse=TRUE)
+
+#damage_cline<-visregList(visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Addition"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE), visreg(LAR_glmmTMB_full,"S_elev", by="Water",cond=list("Herbivore"="Removal"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE),collapse=TRUE)
+
+damfit<-data.frame(damage_cline$fit)
+damfit$visregFITexp<-exp(damfit$visregFit)
+		
+damage_clinal_variation<-ggplot(damfit, aes(S_elev, visregFITexp,group= Water, colour= Water, fill=factor(Water))) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= LAR_data_long_form, aes(S_elev, LAR_prop, color= Water, shape=Water), alpha=0.50, color="black")+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_x_continuous("Source elevation (m)",breaks=c(-1.557947,-0.1085093, 1.340929))+ scale_y_continuous("Leaf area removed by herbivores (proportion)")+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+ geom_line(aes(group=Water),linewidth=1)+scale_linetype_manual(values=c("solid", "dotted"))+facet_grid(Herbivore~year)
+
+damage_clinal_variation #Fig 2A
 
 #*******************************************************************************
 #### Specific Leaf Area #####
 #*******************************************************************************
 
-#sla_model_1 <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-#Anova(sla_model_1, type = "III") # 
+sla_model_full <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+Anova(sla_model_full, type = "III")  
 
-#simulationOutput <- simulateResiduals(fittedModel= sla_model_1, plot = T, re.form = NULL,allow.new.levels =T)
+sla_model_red1<- glmmTMB(SLA ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+Anova(sla_model_red1, type = "III")  
+
+sla_model_red2 <- glmmTMB(SLA ~ Water*Herbivore*year+S_elev+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+Anova(sla_model_red2, type = "III")  
+
+sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore*year+S_elev
+                                +(1|Genotype)
+                                +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+
+sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore*year+S_elev
+                                 +(1|PlantID)
+                                 +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+sla_model_no_cb <- glmmTMB(SLA ~ Water*Herbivore*year+S_elev
+                           +(1|PlantID)
+                           +(1|Genotype)
+                           , data = foliar, family= lognormal(link="log"))
+
+anova(sla_model_red2,sla_model_no_plantID)
+anova(sla_model_red2,sla_model_no_genotype)
+anova(sla_model_red2,sla_model_no_cb)
 
 
 sla_model <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-Anova(sla_model, type = "III") # 
+Anova(sla_model, type = "III") 
+
+sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
+                                +(1|Genotype)
+                                +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+
+sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
+                                 +(1|PlantID)
+                                 +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+sla_model_no_cb <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
+                           +(1|PlantID)
+                           +(1|Genotype)
+                           , data = foliar, family= lognormal(link="log"))
+
+anova(sla_model,sla_model_no_plantID)
+anova(sla_model,sla_model_no_genotype)
+anova(sla_model,sla_model_no_cb)
+
+##Top model is sla_model_full, followed by sla_model_red1, sla_model, and sla_model_red2
+model.sel(sla_model_full, sla_model, sla_model_red1, sla_model_red2)
+
+#####Note for continued analysis. All of the models show the same general pattern: A cline in source elevation and an effect of watering treatment.
+#The sla_model_red1 generates a p-value for S_elev that does not meet our significance threshold of 0.0084. The delta AICc of sla_model_full, sla_model_red1 and sla_model are 
+#all within 1 of each other, which means that you can essentially select whichever model you would like, as there is not much of a difference.
+#I would use either sla_model_full or sla_model. If you use sla_model, you can say that the AICc value was only 0.57 units higher
+#for this simple model compared to the more complex full model; therefore, we opted for the simpler version
+
+
   ##Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= sla_model, plot = T, re.form = NULL,allow.new.levels =T)
 
-#sla_model_3 <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-#Anova(sla_model_3, type = "III") # 
 ##Use the DHARMa package to examine the residuals, which are reasonable
-#simulationOutput <- simulateResiduals(fittedModel= sla_model_3, plot = T, re.form = NULL,allow.new.levels =T)
+simulationOutput <- simulateResiduals(fittedModel= sla_model_full, plot = T, re.form = NULL,allow.new.levels =T)
+
+
 
 
 SLA <-emmeans(sla_model, ~ Water, type="response", adjust = "sidak")
@@ -369,23 +548,22 @@ cld(SLA, details=TRUE)
 
   ##To test the random effeccts
 
-#sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
-#                       +(1|Genotype)
-#                       +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year
+                       +(1|Genotype)
+                       +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
 
-#sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
-#                       +(1|PlantID)
-#                       +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year
+                       +(1|PlantID)
+                       +(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+sla_model_no_cb <- glmmTMB(SLA ~ Water*Herbivore*S_elev+year
+                       +(1|PlantID)
+                       +(1|Genotype)
+                       , data = foliar, family= lognormal(link="log"))
 
-#sla_model_no_cb <- glmmTMB(SLA ~ Water*Herbivore+S_elev+year
-#                       +(1|PlantID)
-#                       +(1|Genotype)
-#                       , data = foliar, family= lognormal(link="log"))
 
-
-#anova(sla_model,sla_model_no_plantID)
-#anova(sla_model,sla_model_no_genotype)
-#anova(sla_model_2,sla_model_no_cb)
+anova(sla_model_red1,sla_model_no_plantID)
+anova(sla_model_red1,sla_model_no_genotype)
+anova(sla_model_red1,sla_model_no_cb)
 
 	##Set tick marks on the X axis for these elevations: 2600, 3100, 3600
 #(2600-mean(foliar $elevation, na.rm = TRUE))/sd( foliar $elevation,na.rm = TRUE)
@@ -425,18 +603,140 @@ hist(succulence_data$succulence_mg)
 n<-nrow(succulence_data)
 succulence_data $y_beta<- (succulence_data $succulence*(n-1) + 0.5)/n
 
+###Gamlss models - if you don't use the gamlss models, then please delete this new text that I wrote. I'm attaching the output .rda files to the email so that you can easily load them.
+# Succulence_full<- gamlss (formula= y_beta ~S_elev*Water*Herbivore*year+  random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data= succulence_data,control = gamlss.control(n.cyc = 500))
+# plot(Succulence_full)
+# summary(Succulence_full)
+# drop1(Succulence_full)
+# 
+# save(Succulence_full, file='Succulence_full.rda')   
+# 
+# 
+# Succulence_red<- gamlss (formula= y_beta ~S_elev*Water*Herbivore+year+  random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data= succulence_data,control = gamlss.control(n.cyc = 500))
+# plot(Succulence_red)
+# summary(Succulence_red)
+# drop1(Succulence_red)
+# 
+# save(Succulence_red, file='Succulence_red.rda')   
+# 
+# 
+# 
+# Succulence_red1<- gamlss (formula= y_beta ~S_elev+Water*Herbivore+year+  random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data= succulence_data,control = gamlss.control(n.cyc = 500))
+# plot(Succulence_red1)
+# summary(Succulence_red1)
+# drop1(Succulence_red1)
+# 
+# save(Succulence_red1, file='Succulence_red1.rda')   
+# 
+# ##Succulence full has the lowest AICc (and the best residuals), then red1 then red 
+# AICc(Succulence_full) # -5940.434
+# AICc(Succulence_red) # -5889.869
+# AICc(Succulence_red1) #-5894.59
+# 
+# #to test main effects 
+# Succulence_red2<- gamlss (formula= y_beta ~S_elev+Water+Herbivore+year+  random(PlantID)+ random(Cage_Block)+random(Genotype),family=BE(mu.link = "logit"), data= succulence_data,control = gamlss.control(n.cyc = 500))
+# plot(Succulence_red2)
+# summary(Succulence_red2)
+# drop1(Succulence_red2)
+# save(Succulence_red2, file='Succulence_red2.rda')   
 
-#succ_model <- glmmTMB(succulence ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, ziformula= ~1,family=beta_family(link="log"))
+
+
+succ_model_full <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=beta_family())
+Anova(succ_model_full,type="III")
+
+succ_model_no_plantID <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
+                      +(1|Genotype)
+                      +(1|Cage_Block), data = succulence_data, 
+                      family=beta_family())
+
+succ_model_no_genotype <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
+                      +(1|PlantID)
+                      +(1|Cage_Block), data = succulence_data, 
+                      family=beta_family())
+
+succ_model_no_cb <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
+                      +(1|PlantID)
+                      +(1|Genotype)
+                      , data = succulence_data, 
+                      family=beta_family())
+
+anova(succ_model_full,succ_model_no_plantID)
+anova(succ_model_full,succ_model_no_genotype)
+anova(succ_model_full,succ_model_no_cb)
+
+
+succ_model_red1 <- glmmTMB(y_beta ~ Water*Herbivore*S_elev+year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=beta_family())
+Anova(succ_model_red1, type = "III") # 
+
+
+succ_model_no_plantID <- glmmTMB(y_beta ~ Water*Herbivore*S_elev+year
+                                 +(1|Genotype)
+                                 +(1|Cage_Block), data = succulence_data, 
+                                 family=beta_family())
+
+succ_model_no_genotype <- glmmTMB(y_beta ~ Water*Herbivore*S_elev+year
+                                  +(1|PlantID)
+                                  +(1|Cage_Block), data = succulence_data, 
+                                  family=beta_family())
+
+succ_model_no_cb <- glmmTMB(y_beta ~ Water*Herbivore*S_elev+year
+                            +(1|PlantID)
+                            +(1|Genotype)
+                            , data = succulence_data, 
+                            family=beta_family())
+
+anova(succ_model_red1,succ_model_no_plantID)
+anova(succ_model_red1,succ_model_no_genotype)
+anova(succ_model_red1,succ_model_no_cb)
+
+
+
+succ_model_red2 <- glmmTMB(y_beta ~ Water*Herbivore* year +S_elev+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=beta_family())
+Anova(succ_model_red2, type = "III") # 
+emmeans(succ_model_red2, ~ Herbivore*year, type="response", adjust = "sidak")
+
+succ_model_no_plantID <- glmmTMB(y_beta ~  Water*Herbivore* year +S_elev
+                                 +(1|Genotype)
+                                 +(1|Cage_Block), data = succulence_data, 
+                                 family=beta_family())
+
+succ_model_no_genotype <- glmmTMB(y_beta ~  Water*Herbivore* year +S_elev
+                                  +(1|PlantID)
+                                  +(1|Cage_Block), data = succulence_data, 
+                                  family=beta_family())
+
+succ_model_no_cb <- glmmTMB(y_beta ~  Water*Herbivore* year +S_elev
+                            +(1|PlantID)
+                            +(1|Genotype)
+                            , data = succulence_data, 
+                            family=beta_family())
+
+anova(succ_model_red2,succ_model_no_plantID)
+anova(succ_model_red2,succ_model_no_genotype)
+anova(succ_model_red2,succ_model_no_cb)
+
+
+
+predsucc <- ggpredict(succ_model_red2, terms = c("S_elev[all]"), type = "re", interval="confidence")
+plot(predsucc, show_data=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Leaf succulence")
+
+succ_cline<-visreg(succ_model_red2,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+
+Succ_clinal_variation<-ggplot(succ_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= succulence_data, aes(S_elev, y_beta), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (mg)")+scale_x_continuous("Source elevation (m)")
 
 succ_model <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
                       +(1|PlantID)
                       +(1|Genotype)
                       +(1|Cage_Block), data = succulence_data, 
                       family=beta_family())
-
 Anova(succ_model, type = "III") # 
   ##Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= succ_model, plot = T, re.form = NULL,allow.new.levels =T)
+simulationOutput <- simulateResiduals(fittedModel= succ_model_full, plot = T, re.form = NULL,allow.new.levels =T)
+
+##Top model is succ_model_red2 , then full, succ_model then succ_model_red1
+model.sel(succ_model_full, succ_model_red1, succ_model, succ_model_red2)
 
 ##Slope of the relationship between source elevation and Succulence The beta values need to be exponentiated
 
@@ -451,30 +751,28 @@ Succ_table <- Succ_table%>% mutate(
 
   ##test random effects
 
-#succ_model_no_plantID <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
-#                      +(1|Genotype)
-#                      +(1|Cage_Block), data = succulence_data, 
-#                      family=beta_family())
+succ_model_no_plantID <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
+                      +(1|Genotype)
+                      +(1|Cage_Block), data = succulence_data, 
+                      family=beta_family())
 
-#succ_model_no_genotype <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
-#                      +(1|PlantID)
-#                      +(1|Cage_Block), data = succulence_data, 
-#                      family=beta_family())
+succ_model_no_genotype <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
+                      +(1|PlantID)
+                      +(1|Cage_Block), data = succulence_data, 
+                      family=beta_family())
 
-#succ_model_no_cb <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
-#                      +(1|PlantID)
-#                      +(1|Genotype)
-#                      , data = succulence_data, 
-#                      family=beta_family())
+succ_model_no_cb <- glmmTMB(y_beta ~ Water*Herbivore+S_elev+year
+                      +(1|PlantID)
+                      +(1|Genotype)
+                      , data = succulence_data, 
+                      family=beta_family())
 
-#anova(succ_model,succ_model_no_plantID)
-#anova(succ_model,succ_model_no_genotype)
-#anova(succ_model,succ_model_no_cb)
+anova(succ_model,succ_model_no_plantID)
+anova(succ_model,succ_model_no_genotype)
+anova(succ_model,succ_model_no_cb)
 
-  ## cline for succulence
-succ_cline<-visreg(succ_model,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+ ## cline for succulence
 
-Succ_clinal_variation<-ggplot(succ_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= succulence_data, aes(S_elev, y_beta), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (mg)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
 
 
 
@@ -492,9 +790,54 @@ Suc_treatment
 #*******************************************************************************
 #### Flowering phenology #####
 #*******************************************************************************
+FT_model_full<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(FT_model_full, type = "III") # 
+
+FT_model_red1<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(FT_model_red1, type = "III") # 
+
+FT_model_no_geno<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_no_cageblock<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_noplantID<-glmmTMB(FT_Adj ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(FT_model_red1,FT_model_no_geno)
+anova(FT_model_red1,FT_model_no_cageblock)
+anova(FT_model_red1,FT_model_noplantID)
+
+predFT <- ggpredict(FT_model_red1, terms = c("S_elev[all]", "Water"), type = "re", interval="confidence")
+plot(predFT, show_residuals=TRUE, colors = cols, facet=TRUE)+theme(text = element_text(size=15),axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank())+theme(legend.position="none")+scale_x_continuous("Source elevation (standardized)")+ scale_y_continuous("Flowering phenology")
+
+FT_model_red2<-glmmTMB(FT_Adj ~ year*Water*Herbivore+ S_elev +(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(FT_model_red2, type = "III") # 
+emmeans(FT_model_red2, ~ Herbivore*year, type="response", adjust = "sidak")
+
+FT_model_no_geno<-glmmTMB(FT_Adj ~ year*Water*Herbivore+ S_elev+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_no_cageblock<-glmmTMB(FT_Adj ~ year*Water*Herbivore+ S_elev+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_noplantID<-glmmTMB(FT_Adj ~ year*Water*Herbivore+ S_elev+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(FT_model_red2,FT_model_no_geno)
+anova(FT_model_red2,FT_model_no_cageblock)
+anova(FT_model_red2,FT_model_noplantID)
+
+
 
 FT_model<-glmmTMB(FT_Adj ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
 Anova(FT_model, type = "III") # 
+
+FT_model_no_geno<-glmmTMB(FT_Adj ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_no_cageblock<-glmmTMB(FT_Adj ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+FT_model_noplantID<-glmmTMB(FT_Adj ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(FT_model,FT_model_no_geno)
+anova(FT_model,FT_model_no_cageblock)
+anova(FT_model,FT_model_noplantID)
+
+
+##The top model is FT_model_red2, but that is followed very closely by FT_model and FT_model_red1. I will leave this decision up to you, but we do lose information by not using the more complete models.
+#I suggest looking at the figures for the various models (all of which have similar performances) and evaluating which model might best reflect the biology of the system.
+model.sel(FT_model_full, FT_model_red1, FT_model, FT_model_red2)
+
+####
 
   ##check residuals
 simulationOutput <- simulateResiduals(fittedModel= FT_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
@@ -537,23 +880,47 @@ FT_treatment
 #### Flowering duration #####
 #*******************************************************************************
 
+flowering_duration_full<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(flowering_duration_full, type = "III") 
+
+
+
+flowering_duration_red1<-glmmTMB(flowering_duration ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(flowering_duration_red1, type = "III") 
+
+flowering_duration_nogeno<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+flowering_duration_nocageblock<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+flowering_duration_noplantid<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(flowering_duration,flowering_duration_nogeno)
+anova(flowering_duration,flowering_duration_nocageblock)
+anova(flowering_duration,flowering_duration_noplantid)
+
+flowering_duration_red2<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(flowering_duration_red2, type = "III") 
+
 flowering_duration<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-
-
 Anova(flowering_duration, type = "III") 
+
+##The top model is flowering_duration_red2, followed by flowering_duration, flowering_duration_red1, and then flowering_duration_full.
+#In no case do we see p-values that fall below our significance threshold, so I think you'll just want to select a model that matches the models for the other traits.
+ model.sel(flowering_duration_full, flowering_duration_red1, flowering_duration, flowering_duration_red2 )
+ 
   ##Use the DHARMa package to examine the residuals, which are reasonable
-simulationOutput <- simulateResiduals(fittedModel= flowering_duration, plot = T, re.form = NULL,allow.new.levels =TRUE)
+simulationOutput <- simulateResiduals(fittedModel= flowering_duration_full, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
   ##test random effects
-#flowering_duration_nogeno<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+flowering_duration_nogeno<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
 
-#flowering_duration_nocageblock<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+flowering_duration_nocageblock<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
 
-#flowering_duration_noplantid<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+flowering_duration_noplantid<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
 
-#anova(flowering_duration,flowering_duration_nogeno)
-#anova(flowering_duration,flowering_duration_nocageblock)
-#anova(flowering_duration,flowering_duration_noplantid)
+anova(flowering_duration,flowering_duration_nogeno)
+anova(flowering_duration,flowering_duration_nocageblock)
+anova(flowering_duration,flowering_duration_noplantid)
 
   ## cline plot
 floweringduration_cline<-visreg(flowering_duration,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
@@ -577,22 +944,62 @@ Duration_treatment
 #*******************************************************************************
 #### Tallest stem at flowering #####
 #*******************************************************************************
-
+##This is the top model
 max_height<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-
 Anova(max_height, type = "III") # 
+
+max_height_full<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(max_height_full, type = "III") # 
+
+max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore*year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore*year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(max_height_full,max_height_nogeno)
+anova(max_height_full,max_height_nocageblock)
+anova(max_height_full,max_height_nopid)
+
+
+max_height_red1<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(max_height_red1, type = "III") # 
+
+max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev*Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(max_height_red1,max_height_nogeno)
+anova(max_height_red1,max_height_nocageblock)
+anova(max_height_red1,max_height_nopid)
+
+
+max_height_red2<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+Anova(max_height_red2, type = "III") # 
+
+
+max_height_nogeno<-glmmTMB(Max_height_flowering ~  S_elev+Water*Herbivore*year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nocageblock<-glmmTMB(Max_height_flowering ~  S_elev+Water*Herbivore*year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nopid<-glmmTMB(Max_height_flowering ~  S_elev+Water*Herbivore*year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+
+anova(max_height_red2,max_height_nogeno)
+anova(max_height_red2,max_height_nocageblock)
+anova(max_height_red2,max_height_nopid)
+
+
+
+##Top model is max_height, followed by max_height_red2, max_height_red1, max_height_full. All models give us the exact same information, so we should use your max_height model.
+model.sel(max_height_full, max_height_red1, max_height, max_height_red2)
   
 ##Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= max_height, plot = T, re.form = NULL)
 
   ##testing random effects
-#max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-#max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-#max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
+max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
 
-#anova(max_height,max_height_nogeno)
-#anova(max_height,max_height_nocageblock)
-#anova(max_height,max_height_nopid)
+anova(max_height,max_height_nogeno)
+anova(max_height,max_height_nocageblock)
+anova(max_height,max_height_nopid)
 
   ##cline plot
 height_cline<-visreg(max_height,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
@@ -619,18 +1026,20 @@ grasshopper_no2021<-subset(grasshopper, year!="2021")
   ##retain only those traits to be included in the models;
 colnames(grasshopper);
 
-traitdat <- dplyr::select(grasshopper_no2021,FT_Adj,Max_height_flowering, avg_LAR, Genotype, Water, Herbivore, PlantID, init.diam, Cage_Block,  year, Mature_length_siliques,Reproduced,flowering_duration, SLA, succulence, FT_Adj)
+traitdat <- dplyr::select(grasshopper_no2021,FT_Adj,Max_height_flowering, avg_LAR, Genotype, Water, Herbivore, PlantID, init.diam, Cage_Block, elevation, year, Mature_length_siliques,Reproduced,flowering_duration, SLA, succulence, FT_Adj)
 
 
 
   ##This standardizes initial plant size (measured as diameter in mm)  to a mean of 0 and standard deviation of 1 for use as a covariate in fitness models
 traitdat $S_initdiam<-scale(traitdat $init.diam,center=TRUE, scale=TRUE)
 
-  ## Many quantitative genetic models have convergence issues (or run very slowly) using raw data because traits and fitness components are measured on different scales. For example, phenology could be measured in days, whereas egg or seed mass is measured in mg. It is generally useful to standardize traits to a mean of 0 and standard deviation of 1. Below is code for standardizing flowering phenology (the resulting standardized variable is sFP, for standardized flowering phenology) and other phenotypic traits. For leaf damage, the standardized variable is called sLAR (which uses our field abbreviation of LAR for leaf area removed by herbivores)
+  ## Many quantitative genetic models have convergence issues (or run very slowly) using raw data because traits and fitness components are measured on different scales. It is generally useful to standardize traits to a mean of 0 and standard deviation of 1. Below is code for standardizing trait values 
 
 traitdat $sLAR<-scale(traitdat $avg_LAR,center=TRUE,scale=TRUE)
 traitdat $sSLA<-scale(traitdat $SLA,center=TRUE,scale=TRUE)
 traitdat $sSUC<-scale(traitdat $succulence,center=TRUE,scale=TRUE)
+traitdat $S_elev<-scale(traitdat $elevation,center=TRUE, scale=TRUE)
+
 
 
 head(traitdat)
@@ -644,13 +1053,25 @@ traitdat $Herbivore<-factor(traitdat $Herbivore, levels = c("Addition","Removal"
 #*******************************************************************************
 ####  Probability of reproduction for vegetative traits only  #####
 #*******************************************************************************
-
-repro_model <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore+year+
+repro_model_original <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
                              Water*Herbivore*sLAR+ 
                              Water*Herbivore*sSUC+ I(sSUC^2)+
-                             Water*Herbivore*sSLA+ I(sSLA^2) 
+                             Water*Herbivore*sSLA*year+ I(sSLA^2) +
+                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
+Anova(repro_model_original,type="III") 
+
+
+
+repro_model <-glmmTMB(Reproduced~S_initdiam+year+
+                             Water*Herbivore*sLAR+ 
+                             Water*Herbivore*sSUC+ I(sSUC^2)+
+                             Water*Herbivore*sSLA+ I(sSLA^2) +
                            +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
 Anova(repro_model,type="III") 
+
+##Higher support for the original model. Let's proceed with that model.
+model.sel(repro_model_original, repro_model)
+
 #summary(repro_model)
 
   ##To check residuals
@@ -834,8 +1255,19 @@ traitdatRepro $sSLA<-scale(traitdatRepro $SLA,center=TRUE,scale=TRUE)
 traitdatRepro $sSUC<-scale(traitdatRepro $succulence,center=TRUE,scale=TRUE)
 traitdatRepro $sFT<-scale(traitdatRepro $FT_Adj,center=TRUE,scale=TRUE)
 traitdatRepro $S_initdiam <-scale(traitdatRepro $init.diam,center=TRUE,scale=TRUE)
+traitdatRepro $S_elev<-scale(traitdatRepro $elevation,center=TRUE, scale=TRUE)
 
-fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore+year +
+
+fecund_modeltraits_original <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore*year +
+                               Water*Herbivore*sFT+
+                               Water*Herbivore*s_max_height +
+                               Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
+                               Water*Herbivore* sSLA+ + Water*Herbivore* I(sSLA^2)+
+                               Water*Herbivore* sSUC+ 
+                               Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
+Anova(fecund_modeltraits_original,type="III") 
+
+fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+year +
                                Water*Herbivore*sFT+
                                Water*Herbivore*s_max_height +
                                Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
@@ -843,6 +1275,9 @@ fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore+
                                Water*Herbivore* sSUC+ 
                                Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 Anova(fecund_modeltraits,type="III") 
+
+##fecund_modeltraits favored over original model
+model.sel(fecund_modeltraits_original, fecund_modeltraits)
 
   ##To check residuals
 simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T, re.form = NULL,allow.new.levels =TRUE)
@@ -882,8 +1317,9 @@ simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T,
 #                               Water*Herbivore* sLAR+Water*Herbivore* sLAR2 +(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 #Anova(fecund_modeltraits_quad,type="III")
 
-## flowering phenology
-#coefficients_FT <- emtrends(fecund_modeltraits_quad, specs = c("sFT"),var = "sFT",type="response")
+#emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"), var = "sFT")
+#FT
+#coefficients_FT <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sFT",type="response")
 #FT_table<- as.data.frame(summary(coefficients_FT))[c('sFT.trend', 'SE')]
 #FT_table <- FT_table%>% mutate(
 #  slopes = exp(sFT.trend),
