@@ -1,6 +1,6 @@
 ######## PROJECT: Common garden experiment: Examining clines and plasticity in response to water availability and grasshopper abundance
 #### PURPOSE:Examine clines, trait values and fitness in response to water availability and grasshopper abundance in the field.
-#### DATE LAST MODIFIED: 29 Oct 2024
+#### DATE LAST MODIFIED: 31 Oct 2024
 
 ## remove objects and clear workspace
 rm(list = ls(all=TRUE))
@@ -25,12 +25,16 @@ library(DHARMa) #for assessing model fits
 library(ggeffects) #for plotting
 library(ggpubr) #for arranging panels into figures
 library(lme4) # for running models
-#library(MuMIn) #For model selection
+
 
 
 ##this is where you specify the folder where you have the data on your computer
 
+
+#setwd("~/Downloads/")
+
 setwd("/Users/inam/Library/CloudStorage/OneDrive-UniversityofGeorgia/Inam_experiments/Herbivory_data/grasshopper/Grasshopper_manuscript_files/Grasshopper_manuscript_Submission/scripts_data/")
+
 
 #setwd("~/Documents/personnel/Jameel/grasshopper")
 
@@ -105,9 +109,9 @@ flowering<-subset(grasshopperFT, Ordinal_Date_flowering!="NA")
 cols=c("#CC79A7","lightblue") #for water treatment
 cols2=c("#882255","#77DDAA") #for the grasshopper treatment
 
-##This examines whether initial size varies as a function of source elevation, Table S15
-initial_size <- lmer(init.diam ~ Water*Herbivore* elev_km +(1|Genotype), data = grasshopper)
-Anova(initial_size, type = "III") #Table S15
+##This examines whether initial size varies as a function of source elevation, Table S1c
+#initial_size <- lmer(init.diam ~ Water*Herbivore* elev_km +(1|Genotype), data = grasshopper)
+#Anova(initial_size, type = "III")
 
 ## check residuals
 #simulationOutput <- simulateResiduals(fittedModel= initial_size, plot = T, re.form = NULL,allow.new.levels =T)
@@ -184,7 +188,7 @@ VWC_plot # Fig S3
 #*******************************************************************************
 
 #*******************************************************************************
-#### Herbivore resistance, analayzed as leaf area removed by herbivores #######
+#### Herbivore resistance, analyzed as leaf area removed by herbivores #######
 #*******************************************************************************
 
 ##* Censuses 1 and 2 occurred for all years. Census 3 was for 2021 and 2022 only
@@ -211,23 +215,6 @@ LAR_data_long_form $census_year<-interaction(LAR_data_long_form$census, LAR_data
 LAR_data_long_form$LAR_prop<-LAR_data_long_form $LAR/100
 hist(LAR_data_long_form$LAR_prop) #check to see if converstion worked
 
-## drop individuals with missing data, gamlss does not run with NAs
-LAR_data_long_form <- drop_na(LAR_data_long_form,LAR_prop)
-
-
-##this is the beta transformation, which transforms all values of 0 to a small value.
-
-#n<-nrow(LAR_data_long_form)
-
-#LAR_data_long_form $y_beta<- (LAR_data_long_form $LAR_prop*(n-1) + 0.5)/n
-
-#hist(LAR_data_long_form $y_beta) #check transformation
-#min(LAR_data_long_form $y_beta)
-#max(LAR_data_long_form $y_beta)
-
-
-
-
 
 ## model analyzing herbivore resistance across source elevation (cline), treatment levels (plasticity), and year.Need to run to generate Figure 2A, damage_clinal_variation
 ## Takes a moment to run
@@ -240,11 +227,12 @@ Anova(LAR_Model)
 simulationOutput <- simulateResiduals(fittedModel= LAR_Model, plot = T, re.form = NULL,allow.new.levels =T)
 
 
-## pairwise comparistions of the water availability treatment
-LAR <-emmeans(LAR_Model, ~ Water*Herbivore, type="response", adjust = "sidak")
-cld(LAR, details=TRUE)
+## pairwise comparisons of the water availability treatment
+#LAR <-emmeans(LAR_Model, ~ Water, type="response", adjust = "sidak")
+#cld(LAR, details=TRUE)
 
-#save(LAR_Model, file='LAR_Model.rda') 
+## Slope of the relationship between source elevation, year, and herbivore abundance. The beta values need to be exponentiated
+#emtrends(LAR_Model, specs = c("Herbivore","year"), var = "S_elev")
 
 ##Set tick marks on the X axis for these elevations: 2600, 3100, 3600. these breaks are in the code to generate damage_cline_variation
 #(2600-mean(LAR_data_long_form $elevation, na.rm = TRUE))/sd( LAR_data_long_form $elevation,na.rm = TRUE)
@@ -287,39 +275,33 @@ LAR_treatment #Fig 2B
 #*******************************************************************************
 
 ## model analyzing specific leaf area across source elevation (cline), treatment levels (plasticity), and year.Need to run to generate Figure 3A, SLA_clinal_variation
-sla_model <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-Anova(sla_model, type = "III") # 
+sla_model <- glmmTMB(SLA ~ Water*Herbivore*year+S_elev*Herbivore*year+S_elev*Water*year+S_elev*Water*Herbivore+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
+
+Anova(sla_model, type = "III")
+
 
 ## Use the DHARMa package to examine the residuals, which are reasonable
-#simulationOutput <- simulateResiduals(fittedModel= sla_model, plot = T, re.form = NULL,allow.new.levels =T)
+simulationOutput <- simulateResiduals(fittedModel= sla_model, plot = T, re.form = NULL,allow.new.levels =T)
 
-## pairwise comparistions of the water availability treatment
+
+## pairwise comparisons of the water availability treatment
 #SLA <-emmeans(sla_model, ~ Water, type="response", adjust = "sidak")
 #cld(SLA, details=TRUE)
 
 ## Slope of the relationship between source elevation and SLA. The beta values need to be exponentiated
 #emtrends(sla_model, specs = c("year"), var = "S_elev")
 
-## To test the random effeccts
-#sla_model_no_plantID <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|Genotype)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-#sla_model_no_genotype <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Cage_Block), data = foliar, family= lognormal(link="log"))
-#sla_model_no_cageblock <- glmmTMB(SLA ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype), data = foliar, family= lognormal(link="log"))
-
-#anova(sla_model,sla_model_no_plantID)
-#anova(sla_model,sla_model_no_genotype)
-#anova(sla_model,sla_model_no_cageblock)
-
 ##Set tick marks on the X axis for these elevations: 2600, 3100, 3600
 #(2600-mean(foliar $elevation, na.rm = TRUE))/sd( foliar $elevation,na.rm = TRUE)
 #(3100-mean(foliar $elevation, na.rm = TRUE))/sd( foliar $elevation,na.rm = TRUE)
 #(3600-mean(foliar $elevation, na.rm = TRUE))/sd( foliar $elevation,na.rm = TRUE)
 
-## cline for specific leaf area
+## cline for specific leaf area, only the cline in 2022 is significant
 SLA_clinal<-visreg(sla_model,"S_elev", by="year", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 SLA_clinal_variation<-ggplot(SLA_clinal $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= foliar, aes(S_elev, SLA), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("SLA (cm2/g)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))+facet_wrap(~year)
 SLA_clinal_variation
 
-## Box_plot, y axis starts at 0 scale_y_continuous(limits = c(0,500)
+## Box_plot, y axis starts at 0
 
 SLA_box <-ggplot(foliar, aes(x = Water, y = SLA, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ scale_y_continuous(limits = c(0,500),"SLA cm2/g") +geom_point(aes(shape=factor(Water)), size = 2,position = position_jitterdodge(0.3))
 
@@ -341,50 +323,32 @@ succulence_data <- drop_na(succulence_data,succulence) #remove missing data
 n<-nrow(succulence_data)
 succulence_data $y_beta<- (succulence_data $succulence*(n-1) + 0.5)/n
 
-## model analyzing leaf succuclence across source elevation (cline), treatment levels (plasticity), and year.Need to run to generate Figure 3E, succulence_clinal_variation
+## model analyzing leaf succulence across source elevation (cline), treatment levels (plasticity), and year.Need to run to generate Figure 3E, succulence_clinal_variation
 succ_model <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=beta_family())
 Anova(succ_model,type="III")
 
-##Use the DHARMa package to examine the residuals, which are reasonable
-#simulationOutput <- simulateResiduals(fittedModel= succ_model, plot = T, re.form = NULL,allow.new.levels =T)
+succ_model <- glmmTMB(y_beta ~Water*Herbivore*year+S_elev*Herbivore*year+S_elev*Water*year+S_elev*Water*Herbivore+(1|PlantID)+(1|Genotype)+(1|Cage_Block), data = succulence_data, family=beta_family(link="logit"))
 
-## pariwise comparisons across herbivore abundamce and year
+Anova(succ_model, type = "III")
+
+##Use the DHARMa package to examine the residuals, which are reasonable
+simulationOutput <- simulateResiduals(fittedModel= succ_model, plot = T, re.form = NULL,allow.new.levels =T)
+
+## pariwise comparisons across herbivore abundance and year
 #succulence <-emmeans(succ_model, ~ Herbivore:year, type="response", adjust = "sidak")
 #cld(succulence, details=TRUE)
-
-##test random effects
-
-#succ_model_no_plantID <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
-#                      +(1|Genotype)
-#                      +(1|Cage_Block), data = succulence_data, 
-#                      family=beta_family())
-
-#succ_model_no_genotype <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
-#                      +(1|PlantID)
-#                      +(1|Cage_Block), data = succulence_data, 
-#                      family=beta_family())
-
-#succ_model_no_cb <- glmmTMB(y_beta ~ Water*Herbivore*S_elev*year
-#                      +(1|PlantID)
-#                      +(1|Genotype)
-#                      , data = succulence_data, 
-#                      family=beta_family())
-
-#anova(succ_model_full,succ_model_no_plantID)
-#anova(succ_model_full,succ_model_no_genotype)
-#anova(succ_model_full,succ_model_no_cb)
 
 ## cline for succulence (not significant)
 succ_clinal<-visreg(succ_model,"S_elev", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 
-Succ_clinal_variation<-ggplot(succ_clinal $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= succulence_data, aes(S_elev, y_beta), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (g)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))
+Succ_clinal_variation<-ggplot(succ_clinal $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= succulence_data, aes(S_elev, y_beta), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Leaf succulence (g/cm2)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))
 
 Succ_clinal_variation #Fig 3E
 
 
 ##Box plot for herbivore by year interaction
 
-Suc_box_herb <-ggplot(succulence_data, aes(x = Herbivore, y = y_beta, fill = Herbivore,shape=Herbivore)) +geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf succulence (g)") +geom_point(aes(shape=factor(Herbivore)), size = 2,position = position_jitterdodge(0.3))
+Suc_box_herb <-ggplot(succulence_data, aes(x = Herbivore, y = y_beta, fill = Herbivore,shape=Herbivore)) +geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Leaf succulence (g/cm2)") +geom_point(aes(shape=factor(Herbivore)), size = 2,position = position_jitterdodge(0.3))
 
 Suc_treatment_herb <-Suc_box_herb + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
                                                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
@@ -399,24 +363,24 @@ Suc_treatment_herb #Fig 3F
 #### Flowering phenology #####
 #*******************************************************************************
 
-## model analyzing flowering phenology as a funciton of source elevation (cline) and the interaction between treatment levels (plasticity). Year as covariate. Need to run to generate Figure 4A, phen_cline
-FT_model<-glmmTMB(FT_Adj ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+## model analyzing flowering phenology as a function of source elevation (cline) and the interaction between treatment levels (plasticity) and year.
+
+FT_model <-glmmTMB(FT_Adj ~ Water*Herbivore*year+S_elev*Herbivore*year+S_elev*Water*year+S_elev*Water*Herbivore+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
 Anova(FT_model, type = "III") # 
 
 ##check residuals
-#simulationOutput <- simulateResiduals(fittedModel= FT_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
+simulationOutput <- simulateResiduals(fittedModel= FT_model, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
-##get slopes that need to be exponentiated
-#emtrends(FT_model, specs = c("S_elev"), var = "S_elev")
-#coefficients_FT <- emtrends(FT_model, var = "S_elev",type="response")
-#FT_table<- as.data.frame(summary(coefficients_FT))[c('S_elev.trend', 'SE')]
+
+##get slopes
+#FT_table<- as.data.frame(summary(coefficients_FT))[c("Water","Herbivore",'S_elev.trend', 'SE')]
 #FT_table <- FT_table%>% mutate(
 #  slopes = exp(S_elev.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
 #  Upper95 = slopes * exp(1.96*SE))
 
-## pariwise comparisons across treatment levels, not significant
-#FT <-emmeans(FT_model, ~ year, type="response", adjust = "sidak")
+## pariwise comparisons across herbivore treatment levels
+#FT <-emmeans(FT_model, ~ Herbivore*year, type="response", adjust = "sidak")
 #cld(FT, details=TRUE)
 
 
@@ -437,43 +401,49 @@ Anova(FT_model, type = "III") #
 
 ##flowering phenology cline
 
-flowering_time_cline<-visreg(FT_model,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
+flowering_time_cline<-visregList(visreg(FT_model,"S_elev", by="Water",cond=list("Herbivore"="Addition"), overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response"),
+                                 visreg(FT_model,"S_elev", by="Water",cond=list("Herbivore"="Removal"),overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response"), collapse=TRUE)
+phen_cline <-ggplot(flowering_time_cline $fit, aes(S_elev, visregFit,group= Water, colour= Water, fill=factor(Water))) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
+  geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= flowering, aes(S_elev, FT_Adj, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Source elevation (m)",breaks=c(-1.630394,-0.1998366,  1.23072))+ scale_y_continuous("Flowering phenology (ordinal day of year)")+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+facet_wrap(~Herbivore)
 
-phen_cline<-ggplot(flowering_time_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= foliar, aes(S_elev, FT_Adj), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Flowering phenology")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
 
 phen_cline #Fig 4A
 
-##Box_plot, no significant effect of treatment
-FT_box <-ggplot(flowering, aes(x = Water, y = FT_Adj, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ scale_y_continuous("Flowering phenology") +geom_point(aes(shape=factor(Water)), size = 2,position = position_jitterdodge(0.3))
+##Box_plot,  significant effect of herbivore abundance treatment by year
 
-FT_treatment <-FT_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
-                                                axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
-                                                panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Restricted", "Supplemental")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+facet_wrap(~Herbivore)
-FT_treatment #Fig 4B
+
+FT_box_herb <-ggplot(flowering, aes(x = Herbivore, y = FT_Adj, fill = Herbivore,shape=Herbivore)) +geom_boxplot(outlier.shape = NA) +xlab("Herbivore treatment")+ scale_y_continuous("Flowering phenology (g)") +geom_point(aes(shape=factor(Herbivore)), size = 2,position = position_jitterdodge(0.3))
+
+FT_treatment_herb <-FT_box_herb + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+                                                            axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
+                                                            panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Addition", "Removal")) +  scale_fill_manual(values = c(cols2), name = "Water treatment", labels = c("Herbivore Addition","Herbivore removal"))+scale_shape_manual(values=c(22,25), name = "Herbivore treatment", labels = c("Herbivore Addition","Herbivore removal"))+facet_wrap(~year)
+
+
+
+FT_treatment_herb #Fig 4B
 
 #*******************************************************************************
 #### Flowering duration #####
 #*******************************************************************************
 
-## model analyzing flowering duration as a funciton of source elevation (cline) and the interaction between treatment levels (plasticity). Year as covariate. Need to run to generate Figure 4D, Duration_cline
-flowering_duration<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-Anova(flowering_duration, type = "III") 
+## model analyzing flowering duration as a funciton of source elevation (cline) and the interaction between treatment levels (plasticity) and year. Need to run to generate Figure 4D, Duration_cline
+flowering_duration <-glmmTMB(flowering_duration ~ Water*Herbivore+S_elev*Herbivore+S_elev*Water+S_elev*year+Water*year+Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+Anova(flowering_duration, type = "III")
 
 ##Use the DHARMa package to examine the residuals, which are reasonable
 #simulationOutput <- simulateResiduals(fittedModel= flowering_duration, plot = T, re.form = NULL,allow.new.levels =TRUE)
 
-##test random effects
-#flowering_duration_nogeno<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+## pariwise comparisons across treatment levels
+#Duration <-emmeans(flowering_duration, ~ Herbivore*Water, type="response", adjust = "sidak")
+#cld(Duration, details=TRUE)
 
-#flowering_duration_nocageblock<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+## pariwise comparisons across water treatment levels and year
+#Duration_2 <-emmeans(flowering_duration, ~ year*Water, type="response", adjust = "sidak")
+#cld(Duration_2, details=TRUE)
 
-#flowering_duration_noplantid<-glmmTMB(flowering_duration ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
 
-#anova(flowering_duration,flowering_duration_nogeno)
-#anova(flowering_duration,flowering_duration_nocageblock)
-#anova(flowering_duration,flowering_duration_noplantid)
-
-## cline plot
+## cline plot, not significant
 floweringduration_cline<-visreg(flowering_duration,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 
 Duration_cline<-ggplot(floweringduration_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= foliar, aes(S_elev, flowering_duration), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Flowering duration (days)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
@@ -482,10 +452,10 @@ Duration_cline<-ggplot(floweringduration_cline $fit, aes(S_elev, visregFit)) + g
 Duration_cline #Fig 4D
 
 
-##Box_plot
+##Box_plot for treatment effect
 Duration_box <-ggplot(flowering, aes(x = Water, y = flowering_duration, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ scale_y_continuous("Flowering duration") +geom_point(aes(shape=factor(Water)), size = 2,position = position_jitterdodge(0.3))
 
-Duration_treatment <-Duration_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
+Duration_treatment <-Duration_box_year + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
                                                             axis.line.y = element_line(colour = "black"), panel.border = element_blank(), panel.grid.major =element_blank(), 
                                                             panel.grid.minor=element_blank(),legend.position = "none")+ scale_x_discrete(labels=c("Restricted", "Supplemental")) +  scale_fill_manual(values = c("#CC79A7","lightblue"), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+scale_shape_manual(values=c(21,24), name = "Water treatment", labels = c("Water-restricted","Supplemental watering"))+facet_wrap(~Herbivore)
 
@@ -497,39 +467,31 @@ Duration_treatment #Fig 4E
 #### Height at flowering #####
 #*******************************************************************************
 
-## model analyzing height at flowering as a funciton of source elevation (cline) and the interaction between treatment levels (plasticity). Year as covariate. Need to run to generate Figure 4G, height_cline
-max_height<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-Anova(max_height, type = "III") # 
+## model analyzing height at flowering as a funciton of source elevation (cline) and the interaction between treatment levels (plasticity) and year. Need to run to generate Figure 4G, height_cline
+max_height <-glmmTMB(Max_height_flowering ~ Water*Herbivore+S_elev*Herbivore+S_elev*Water+S_elev*year+Water*year+Herbivore*year+(1|Genotype)+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
+
+Anova(max_height, type = "III") # # 
 
 ##Use the DHARMa package to examine the residuals, which are reasonable
 simulationOutput <- simulateResiduals(fittedModel= max_height, plot = T, re.form = NULL)
 
-##testing random effects
-#max_height_nogeno<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Cage_Block)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-#max_height_nocageblock<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1| PlantID),data= flowering,family=lognormal(link="log"))
-#max_height_nopid<-glmmTMB(Max_height_flowering ~ S_elev+Water*Herbivore+year+(1|Genotype)+(1|Cage_Block),data= flowering,family=lognormal(link="log"))
-
-#anova(max_height,max_height_nogeno)
-#anova(max_height,max_height_nocageblock)
-#anova(max_height,max_height_nopid)
 
 ##get slopes that need to be exponentiated
-#emtrends(max_height, specs = c("S_elev"), var = "S_elev")
-#coefficients_H <- emtrends(max_height, var = "S_elev",type="response")
-#H_table<- as.data.frame(summary(coefficients_H))[c('S_elev.trend', 'SE')]
+
+#H_table<- as.data.frame(emtrends(max_height, specs = c("S_elev"), var = "S_elev"))
 #H_table <- H_table%>% mutate(
 #  slopes = exp(S_elev.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
 #  Upper95 = slopes * exp(1.96*SE))
 
-##cline plot
+##cline plot, significant cline
 height_cline<-visreg(max_height,"S_elev", partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 
 height_clinal_variation<-ggplot(height_cline $fit, aes(S_elev, visregFit)) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) + geom_line() +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= foliar, aes(S_elev, Max_height_flowering), alpha=0.5, color="black")+scale_linetype_manual(values=c("dashed","solid"))+scale_y_continuous("Tallest stem at flowering (cm)")+scale_x_continuous("Source elevation (m)",breaks=c(-1.563474, -0.1282131,1.307048))#+facet_wrap(~year)
 
-height_cline #Figure 4G
+height_clinal_variation #Figure 4G
 
-##Box_plot
+##Box_plot no significant plasticity
 height_box <-ggplot(flowering, aes(x = Water, y = Max_height_flowering, fill = Water,shape=Water)) +geom_boxplot(outlier.shape = NA) +xlab("Water availability")+ scale_y_continuous("Tallest stem at flowering (cm)") +geom_point(aes(shape=factor(Water)), size = 2,position = position_jitterdodge(0.3))
 
 height_treatment <-height_box + theme_classic() + theme(text = element_text(size=10),axis.line.x = element_line(colour = "black"), 
@@ -562,8 +524,6 @@ traitdat $sLAR<-scale(traitdat $avg_LAR,center=TRUE,scale=TRUE)
 traitdat $sSLA<-scale(traitdat $SLA,center=TRUE,scale=TRUE)
 traitdat $sSUC<-scale(traitdat $succulence,center=TRUE,scale=TRUE)
 
-
-
 head(traitdat)
 
 
@@ -583,36 +543,10 @@ repro_model <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
                         +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
 Anova(repro_model,type="III") 
 
-
 #summary(repro_model)
 
 ##To check residuals
 #simulationOutput <- simulateResiduals(fittedModel= repro_model, plot = T, re.form = NULL)
-
-##testing random effects
-#repro_model_noplantID <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
-#                                  Water*Herbivore*sLAR+
-#                                  Water*Herbivore*sSUC+I(sSUC^2)+
-#                                  Water*Herbivore*sSLA+I(sSLA^2) 
-#                                +(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
-
-#repro_model_nocb <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
-#                                  Water*Herbivore*sLAR+
-#                                  Water*Herbivore*sSUC+I(sSUC^2)+
-#                                  Water*Herbivore*sSLA+I(sSLA^2) 
-#                                +(1|PlantID)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
-
-
-#repro_model_nogeno <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
-#                                    Water*Herbivore*sLAR+
-#                                    Water*Herbivore*sSUC+I(sSUC^2)+
-#                                    Water*Herbivore*sSLA+I(sSLA^2) 
-#                                  +(1|PlantID)+(1|Cage_Block),data=traitdat,family=binomial(link="logit"))
-
-#anova(repro_model,repro_model_noplantID)
-#anova(repro_model,repro_model_nocb)
-#anova(repro_model,repro_model_nogeno)
-
 
 
 ##Conversation of standardized traits back to raw units
@@ -636,7 +570,7 @@ sla_repro_plot #figure 3C
 suc_repro = visreg(repro_model,"sSUC", by="Herbivore",overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 suc_repro_plot<-ggplot(suc_repro$fit, aes(sSUC, visregFit,group= Herbivore, colour= Herbivore, fill=factor(Herbivore))) +
   geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
-  geom_line(aes(group=Herbivore)) +theme_bw()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_jitter(data= traitdat, aes(sSUC, Reproduced, color= Herbivore, shape=Herbivore),width=0,height=0.025,size=2, alpha=0.75, color="black")+scale_shape_manual(values=c(22,25))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Leaf succulence (mg/cm2)")+ scale_y_continuous("Probability of reproduction")+scale_fill_manual(values = cols2, name = "Grasshopper treatment", labels = c("Addition","Removal"))+scale_colour_manual(values = cols2, name = "Grasshopper treatment", labels = c("Addition","Removal"))
+  geom_line(aes(group=Herbivore)) +theme_bw()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_jitter(data= traitdat, aes(sSUC, Reproduced, color= Herbivore, shape=Herbivore),width=0,height=0.025,size=2, alpha=0.75, color="black")+scale_shape_manual(values=c(22,25))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Leaf succulence (g/cm2)")+ scale_y_continuous("Probability of reproduction")+scale_fill_manual(values = cols2, name = "Grasshopper treatment", labels = c("Addition","Removal"))+scale_colour_manual(values = cols2, name = "Grasshopper treatment", labels = c("Addition","Removal"))
 
 suc_repro_plot #figure 3G
 
@@ -664,6 +598,7 @@ suc_repro_plot #figure 3G
 ##Slope of selection surfaces 
 #emtrends(repro_model_quad, specs = c("Water","Herbivore"), var = "sSLA")
 #emtrends(repro_model_quad, specs = c("Water","Herbivore"), var = "sSLA2")
+#emtrends(repro_model_quad, specs = c("sSLA2"), var = "sSLA2")
 #emtrends(repro_model_quad, specs = c("sSLA"), var = "sSLA")
 
 #emtrends(repro_model_quad, specs = c("Water","Herbivore"), var = "sSUC")
@@ -727,7 +662,7 @@ traitdatRepro $sFT<-scale(traitdatRepro $FT_Adj,center=TRUE,scale=TRUE)
 traitdatRepro $S_initdiam <-scale(traitdatRepro $init.diam,center=TRUE,scale=TRUE)
 
 
-fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+year +
+fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore+year +
                                Water*Herbivore*sFT+
                                Water*Herbivore*s_max_height +
                                Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
@@ -736,28 +671,10 @@ fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+year +
                                Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 Anova(fecund_modeltraits,type="III") 
 
+
+
 ##To check residuals
 #simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T, re.form = NULL,allow.new.levels =TRUE)
-
-##testing random effects
-#fecund_modeltraits_nocb  <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore+year +
-#                               Water*Herbivore*sFT+
-#                               Water*Herbivore*s_max_height +
-#                               Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
-#                               Water*Herbivore* sSLA+ + Water*Herbivore* I(sSLA^2)+
-#                               Water*Herbivore* sSUC+ 
-#                               Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
-
-#fecund_modeltraits_nogeno <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore+year + Water*Herbivore*sFT+
-#                               Water*Herbivore*s_max_height +
-#                               Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
-#                               Water*Herbivore* sSLA+ + Water*Herbivore* I(sSLA^2)+
-#                               Water*Herbivore* sSUC+ 
-#                               Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block),data=traitdatRepro,family=Gamma(link="log"))
-
-
-#anova(fecund_modeltraits,fecund_modeltraits_nocb)
-#anova(fecund_modeltraits,fecund_modeltraits_nogeno)
 
 ##To extract coefficients, we need to create the quadratic effects outside of the model
 #traitdatRepro $sSLA2<-traitdatRepro $sSLA* traitdatRepro $sSLA
@@ -821,7 +738,7 @@ Anova(fecund_modeltraits,type="III")
 
 ## extract selection gradients for specific leaf area
 #coefficients_sla <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sSLA",type="response")
-#sla_table<- as.data.frame(summary(coefficients_sla))[c('sSLA.trend', 'SE')]
+#sla_table<- as.data.frame(summary(coefficients_sla))[c("Water","Herbivore",'sSLA.trend', 'SE')]
 #sla_table <- sla_table%>% mutate(
 #  slopes = exp(sSLA.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
@@ -829,7 +746,7 @@ Anova(fecund_modeltraits,type="III")
 
 ## extract quadratic terms for specific leaf area
 #coefficients_sla <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sSLA2",type="response")
-#sla_table<- as.data.frame(summary(coefficients_sla))[c('sSLA2.trend', 'SE')]
+#sla_table<- as.data.frame(summary(coefficients_sla))[c("Water","Herbivore",'sSLA2.trend', 'SE')]
 #sla_table <- sla_table%>% mutate(
 #  slopes = exp(sSLA2.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
@@ -837,15 +754,15 @@ Anova(fecund_modeltraits,type="III")
 
 ## extract selection gradients for herbivore resistance
 #coefficients_LAR <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sLAR",type="response")
-#LAR_table<- as.data.frame(summary(coefficients_LAR))[c('sLAR.trend', 'SE')]
+#LAR_table<- as.data.frame(summary(coefficients_LAR))[c("Water","Herbivore",'sLAR.trend', 'SE')]
 #LAR_table <- LAR_table%>% mutate(
 #  slopes = exp(sLAR.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
 #  Upper95 = slopes * exp(1.96*SE))
 
 ## extract quadratic terms for herbivore resistance
-#coefficients_LAR <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = "sLAR2",type="response")
-#LAR_table<- as.data.frame(summary(coefficients_LAR))[c('sLAR2.trend', 'SE')]
+#coefficients_LAR <- emtrends(fecund_modeltraits_quad, specs = c("Water","Herbivore"),var = #"sLAR2",type="response")
+#LAR_table<- as.data.frame(summary(coefficients_LAR))[c("Water","Herbivore",'sLAR2.trend', 'SE')]
 #LAR_table <- LAR_table%>% mutate(
 #  slopes = exp(sLAR2.trend),
 #  Lower95 = slopes * exp(-1.96*SE),
@@ -880,7 +797,7 @@ SUC<-visregList(visreg(fecund_modeltraits,"sSUC", by="Water",cond=list("Herbivor
 
 SUC_fecund_plot<-ggplot(SUC $fit, aes(sSUC, visregFit,group= Water, colour= Water, fill=factor(Water))) +
   geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +
-  geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= traitdatRepro, aes(sSUC, Mature_length_siliques, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Leaf succulence (mg/cm2)")+ scale_y_continuous("Fecundity (total fruit length)",limits=c(0,2000))+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+facet_wrap(~Herbivore)
+  geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= traitdatRepro, aes(sSUC, Mature_length_siliques, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Leaf succulence (g/cm2)")+ scale_y_continuous("Fecundity (total fruit length)",limits=c(0,2000))+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+facet_wrap(~Herbivore)
 SUC_fecund_plot #figure 3H
 
 ##Conversation of standardized traits back to raw units
@@ -1049,6 +966,7 @@ hurdle_Model_LA <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
                            +Water*Herbivore*S_elev
                            +Water*Herbivore*I(S_elev^2)
                            +(1|PlantID)+ (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
+RM_fit <- subset(grasshopperFT, Mature_length_siliques>0) # for plotting from count part, excludes plants that did not reproduce
 
 
 ##To check residuals
@@ -1060,7 +978,6 @@ hurdle_Model_LA <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
 #Anova(hurdle_Model_LA,type="III", component="cond")
 
 
-#RM_fit <- subset(grasshopperFT, Mature_length_siliques>0) # for plotting from count part, excludes plants that did not reproduce
 
 ##Extract the coefficients using emtrends, which requires defining the quadratic effect prior to running the model
 #RM_fit $Selev2<-RM_fit $S_elev* RM_fit $S_elev
@@ -1098,75 +1015,10 @@ hurdle_Model_LA <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
 
 fecundity_cline_water<-visreg(hurdle_Model_LA,"S_elev", by="Water", overlay = FALSE, partial = FALSE, rug = FALSE,plot=FALSE,scale="response")
 
-Local_adaptation<-ggplot(fecundity_cline_water $fit, aes(S_elev, visregFit,group= Water, colour= Water, fill=factor(Water))) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= RM_fit, aes(S_elev, Mature_length_siliques, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Source elevation (m)",breaks=c(-1.564114,-0.1030306,1.358053))+ scale_y_continuous("Fecundity (total fruit length, mm)",limits=c(0,2500))+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+facet_wrap(~Water)
+Local_adaptation<-ggplot(fecundity_cline_water $fit, aes(S_elev, visregFit,group= Water, colour= Water, fill=factor(Water))) + geom_ribbon(aes(ymin=visregLwr, ymax=visregUpr), alpha=0.15, linetype=0) +geom_line(aes(group=Water)) +theme_classic()+theme(text = element_text(size=10), axis.line.x = element_line(colour = "black"), axis.line.y = element_line(colour = "black"), panel.border = element_blank(),panel.grid.major =element_blank(), panel.grid.minor=element_blank(),legend.position = "none")+ geom_point(data= RM_fit, aes(S_elev, Mature_length_siliques, color= Water, shape=Water), alpha=0.75, color="black")+scale_shape_manual(values=c(21,24))+scale_linetype_manual(values=c("dashed","solid"))+scale_x_continuous("Source elevation (m)",breaks=c(-1.564114,-0.1030306,1.358053))+ scale_y_continuous("Seed set (total fruit length, mm)",limits=c(0,2500))+scale_fill_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+scale_colour_manual(values = cols, name = "Water treatment", labels = c("Restricted","Supplemental"))+facet_wrap(~Water)
 
 ##Figure 5
 Local_adaptation
-
-
-
-##Test the random effects for both components of the hurdle model
-
-#hurdle_Model_LA_plant_count <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|Cage_Block)+(1|Genotype), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+ (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-
-#hurdle_Model_LA_plant_zero <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           + (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-
-#hurdle_Model_LA_cage_count <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Genotype), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+ (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-
-#hurdle_Model_LA_cage_zero <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Genotype),family=ziGamma(link="log"))
-
-#hurdle_Model_LA_geno_count <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Cage_Block), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+ (1| Cage_Block)+(1|Genotype),family=ziGamma(link="log"))
-
-#hurdle_Model_LA_geno_zero <- glmmTMB(Mature_length_siliques ~ S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype), data= grasshopperFT, 
-#                           zi=~S_initdiam+year
-#                           +Water*Herbivore*S_elev
-#                           +Water*Herbivore*I(S_elev^2)
-#                           +(1|PlantID)+ (1| Cage_Block),family=ziGamma(link="log"))
-
-#anova(hurdle_Model_LA, hurdle_Model_LA_plant_count)
-#anova(hurdle_Model_LA, hurdle_Model_LA_plant_zero)
-#anova(hurdle_Model_LA, hurdle_Model_LA_cage_count)
-#anova(hurdle_Model_LA, hurdle_Model_LA_cage_zero)
-#anova(hurdle_Model_LA, hurdle_Model_LA_geno_count)
-#anova(hurdle_Model_LA, hurdle_Model_LA_geno_zero)
 
 
 
@@ -1181,7 +1033,7 @@ figure2 <- ggarrange(damage_clinal_variation,
                      ncol = 3, nrow = 1, common.legend = TRUE, legend="none")
 figure2
 
-## Figure 3 #could swap succulence treatment panel with Suc_treatment for water
+## Figure 3
 
 figure3 <- ggarrange(
   SLA_clinal_variation, SLA_treatment, sla_repro_plot, SLA_fecund_plot,Succ_clinal_variation, Suc_treatment_herb, suc_repro_plot, SUC_fecund_plot , 
@@ -1194,7 +1046,7 @@ figure3
 
 figure4 <- ggarrange(
   phen_cline,
-  FT_treatment,
+  FT_treatment_herb,
   FT_fecund_plot,
   Duration_cline,
   Duration_treatment,
@@ -1205,7 +1057,6 @@ figure4 <- ggarrange(
   labels = c("A", "B", "C","D", "E", "F","G", "H", "I"),
   ncol = 3, nrow = 3)
 figure4
-
 
 
 ##Figure5
