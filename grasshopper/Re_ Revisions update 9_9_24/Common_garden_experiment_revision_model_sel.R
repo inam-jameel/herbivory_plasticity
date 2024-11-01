@@ -1056,17 +1056,17 @@ traitdat $Herbivore<-factor(traitdat $Herbivore, levels = c("Addition","Removal"
 repro_model_original <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore*year+
                              Water*Herbivore*sLAR+ 
                              Water*Herbivore*sSUC+ I(sSUC^2)+
-                             Water*Herbivore*sSLA*year+ I(sSLA^2) +
-                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
+                             Water*Herbivore*sSLA+ I(sSLA^2) +
+                           (1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
 Anova(repro_model_original,type="III") 
 
 
 
-repro_model <-glmmTMB(Reproduced~S_initdiam+year+
+repro_model <-glmmTMB(Reproduced~S_initdiam+Water*Herbivore+year+
                              Water*Herbivore*sLAR+ 
                              Water*Herbivore*sSUC+ I(sSUC^2)+
                              Water*Herbivore*sSLA+ I(sSLA^2) +
-                           +(1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
+                           (1|PlantID)+(1|Cage_Block)+(1|Genotype),data=traitdat,family=binomial(link="logit"))
 Anova(repro_model,type="III") 
 
 ##Higher support for the original model. Let's proceed with that model.
@@ -1267,7 +1267,8 @@ fecund_modeltraits_original <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*H
                                Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 Anova(fecund_modeltraits_original,type="III") 
 
-fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+year +
+fecund_modeltraits_2 <-glmmTMB(Mature_length_siliques~ S_initdiam+Water*Herbivore
+                             +Water*year + Herbivore*year+
                                Water*Herbivore*sFT+
                                Water*Herbivore*s_max_height +
                                Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
@@ -1276,8 +1277,19 @@ fecund_modeltraits <-glmmTMB(Mature_length_siliques~ S_initdiam+year +
                                Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
 Anova(fecund_modeltraits,type="III") 
 
+
+fecund_modeltraits_1 <-glmmTMB(Mature_length_siliques~ S_initdiam+Water+Herbivore+year+
+                               Water*Herbivore*sFT+
+                               Water*Herbivore*s_max_height +
+                               Water*Herbivore* sduration +Water*I(sduration^2) +Herbivore*I(sduration^2)+
+                               Water*Herbivore* sSLA+ Water*Herbivore* I(sSLA^2)+
+                               Water*Herbivore* sSUC+ 
+                               Water*Herbivore* sLAR+Water*Herbivore*I(sLAR^2)+(1|Cage_Block)+(1|Genotype),data=traitdatRepro,family=Gamma(link="log"))
+Anova(fecund_modeltraits_1,type="III") 
+
+
 ##fecund_modeltraits favored over original model
-model.sel(fecund_modeltraits_original, fecund_modeltraits)
+model.sel(fecund_modeltraits_original, fecund_modeltraits_1, fecund_modeltraits_2)
 
   ##To check residuals
 simulationOutput <- simulateResiduals(fittedModel= fecund_modeltraits, plot = T, re.form = NULL,allow.new.levels =TRUE)
